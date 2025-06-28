@@ -10,6 +10,22 @@ fn lex(input: &str) -> Vec<Token> {
 }
 
 #[cfg(test)]
+mod tests_bad_lex {
+    use crate::lex;
+    use sym_rustic::ast::Expression;
+    use sym_rustic::lexer::Token;
+    use sym_rustic::parser::{ParseError, Parser};
+
+    #[test]
+    fn test_bad_lex_1() {
+        let tokens: Vec<Token> = lex("é");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap_err();
+        assert_eq!(expr, ParseError::UnexpectedToken("Unsupported: é".to_string(), 0));
+    }
+}
+
+#[cfg(test)]
 mod tests_number {
     use crate::lex;
     use sym_rustic::ast::Expression;
@@ -617,7 +633,7 @@ mod tests_functions {
         let tokens = lex("log ( 10, a)");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap_err();
-        assert_eq!(expr, ParseError::UnexpectedToken("Comma".to_string(), 5))
+        assert_eq!(expr, ParseError::UnexpectedToken(",".to_string(), 5))
     }
 }
 
@@ -1144,7 +1160,7 @@ mod tests_derivative {
 
         assert_eq!(
             expr,
-            ParseError::UnexpectedToken("Multiply".to_string(), 11)
+            ParseError::UnexpectedToken("*".to_string(), 11)
         )
     }
 
@@ -1154,6 +1170,6 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap_err();
 
-        assert_eq!(expr, ParseError::UnexpectedToken("Expected end of input but found Number(\"4\")".to_string(), 10))
+        assert_eq!(expr, ParseError::UnexpectedToken("Expected end of input but found 4".to_string(), 10))
     }
 }

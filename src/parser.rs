@@ -58,7 +58,7 @@ impl<'a> Parser<'a> {
 
         if let Some(token) = self.current_token() {
             Err(ParseError::UnexpectedToken(
-                format!("Expected end of input but found {:?}", token),
+                format!("Expected end of input but found {}", token),
                 self.position,
             ))
         } else {
@@ -105,7 +105,7 @@ impl<'a> Parser<'a> {
                 Token::Equals => Expression::Equality(Box::new(left_expr), Box::new(right_expr)),
                 _ => {
                     return Err(ParseError::UnexpectedToken(
-                        format!("{:?}", token),
+                        format!("{}", token),
                         self.position,
                     ));
                 }
@@ -224,13 +224,13 @@ impl<'a> Parser<'a> {
                     }
                 } else {
                     Err(ParseError::UnexpectedToken(
-                        format!("{:?}", self.current_token().unwrap()),
+                        format!("{}", self.current_token().unwrap()),
                         self.position,
                     ))
                 }
             }
             Some(token) => Err(ParseError::UnexpectedToken(
-                format!("{:?}", token),
+                format!("{}", token),
                 self.position,
             )),
             None => Err(ParseError::UnexpectedEndOfInput(self.position)),
@@ -387,7 +387,7 @@ impl<'a> Parser<'a> {
                 Ok(expr)
             } else {
                 Err(ParseError::UnexpectedToken(
-                    format!("{:?}", self.current_token().unwrap()),
+                    format!("{}", self.current_token().unwrap()),
                     self.position,
                 ))
             }

@@ -150,14 +150,8 @@ mod tests_additions {
 
     #[test]
     fn test_addition_16() {
-        let mut log: Option<Vec<String>> = Some(Vec::new());
+        let expr = simplify(parse(lex("- 1 - 2 + 7")), &mut None).unwrap();
 
-        let expr = simplify(parse(lex("- 1 - 2 + 7")), &mut log).unwrap();
-        if let Some(logged) = log {
-            for line in logged {
-                println!("{}", line);
-            }
-        }
         assert!(expr.is_equal(&Expression::integer(4)));
     }
 
@@ -166,6 +160,8 @@ mod tests_additions {
         let expr = simplify(parse(lex("2 - 4")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::Negation(Box::new(Expression::integer(2)))));
     }
+
+
 }
 
 mod tests_multiplication {

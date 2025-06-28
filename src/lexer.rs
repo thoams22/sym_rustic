@@ -1,22 +1,66 @@
+use core::fmt;
+use std::fmt::write;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Number(String),
+    Literal(String),
+
     Plus,
     Minus,
     Multiply,
     Divide,
     Caret,
     Equals,
+
+    Percent,
+    Dot,
     Comma,
     Quote,
-    SemiColon,
     SingleQuote,
+    SemiColon,
+
     LeftParen,
     RightParen,
-    Literal(String),
+    LeftCurly,
+    RightCurly,
+    LeftBracket,
+    RightBracket,
+
     Underscore,
     WhiteSpace,
-    Error,
+
+    Unsupported(String),
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::Number(a) => write!(f, "{a}"),
+            Token::Literal(a) => write!(f, "{a}"),
+            Token::Plus => write!(f, "+"),
+            Token::Minus => write!(f, "-"),
+            Token::Multiply => write!(f, "*"),
+            Token::Divide => write!(f, "/"),
+            Token::Caret => write!(f, "^"),
+            Token::Equals => write!(f, "="),
+            Token::Percent => write!(f, "%"),
+            Token::Dot => write!(f, "."),
+            Token::Comma => write!(f, ","),
+            Token::Quote => write!(f, "\""),
+            Token::SingleQuote => write!(f, "'"),
+            Token::SemiColon => write!(f, ";"),
+            Token::LeftParen => write!(f, "("),
+            Token::RightParen => write!(f, ")"),
+            Token::LeftCurly => write!(f, "{{"),
+            Token::RightCurly => write!(f, "}}"),
+            Token::LeftBracket => write!(f, "["),
+            Token::RightBracket => write!(f, "]"),
+            Token::Underscore => write!(f, "_"),
+            Token::WhiteSpace => write!(f, "WhiteSpace"),
+            Token::Unsupported(a) => write!(f, "Unsupported: {a}"),
+        }
+    }
 }
 
 pub struct Lexer<'a> {
@@ -55,9 +99,10 @@ impl<'a> Lexer<'a> {
     fn identifier(&mut self) -> Token {
         let start = self.position;
         while let Some(c) = self.current_char {
-            if c.is_alphanumeric() {
+            if c.is_ascii_alphanumeric() {
                 self.advance();
-            } else {
+            }
+            else {
                 break;
             }
         }
@@ -67,7 +112,7 @@ impl<'a> Lexer<'a> {
     pub fn next_token(&mut self) -> Option<Token> {
         match self.current_char {
             Some(c) if c.is_ascii_digit() => Some(self.number()),
-            Some(c) if c.is_alphabetic() => Some(self.identifier()),
+            Some(c) if c.is_ascii_alphabetic() => Some(self.identifier()),
             Some(' ') => {
                 self.advance();
                 Some(Token::WhiteSpace)
@@ -124,9 +169,33 @@ impl<'a> Lexer<'a> {
                 self.advance();
                 Some(Token::SingleQuote)
             }
-            Some(_) => {
+            Some('%') => {
                 self.advance();
-                Some(Token::Error)
+                Some(Token::Percent)
+            }
+            Some('.') => {
+                self.advance();
+                Some(Token::Dot)
+            }
+            Some('{') => {
+                self.advance();
+                Some(Token::LeftCurly)
+            }
+            Some('}') => {
+                self.advance();
+                Some(Token::RightCurly)
+            }
+            Some('[') => {
+                self.advance();
+                Some(Token::LeftBracket)
+            }
+            Some(']') => {
+                self.advance();
+                Some(Token::RightBracket)
+            }
+            Some(a) => {
+                self.advance();
+                Some(Token::Unsupported(a.to_string()))
             }
             None => None,
         }

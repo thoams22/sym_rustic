@@ -1,29 +1,34 @@
-use crate::ast::{numeral, Expression, SimplifyError};
+use crate::ast::{Expression, SimplifyError, numeral};
 
 impl Expression {
     pub fn simplify_division(
-    &mut self,
-    lhs: Expression,
-    rhs: Expression,
-    explanation: &mut Option<Vec<String>>,
-) -> Result<Expression, SimplifyError> {
-
-    let mut rule = "";
-    let result = match (lhs, rhs) {
-        // a/0 => DivisionByZero
-        (_, Expression::Number(numeral::Numeral::Integer(0))) => Err(SimplifyError::DivisionByZero),
-        // a/1 => a
-        (lhs, Expression::Number(numeral::Numeral::Integer(1))) => Ok(lhs),
-        // 0/a => 0
-        (Expression::Number(numeral::Numeral::Integer(0)), _) => Ok(Expression::integer(0)),
-        // a/a => 1
-        (lhs, rhs) if lhs.is_equal(&rhs) => Ok(Expression::integer(1)),
-        (Expression::Number(numeral::Numeral::Integer(a)), Expression::Number(numeral::Numeral::Integer(b))) => Ok(Expression::integer(a / b)),
-        // a/(b/c) => (a*c)/b
-        (lhs, Expression::Division(rhs1, rhs2)) => Expression::Division(
-            Box::new(Expression::Multiplication(vec![lhs, *rhs2.clone()])),
-            rhs1,
-        ).simplify(explanation),
+        &mut self,
+        lhs: Expression,
+        rhs: Expression,
+        explanation: &mut Option<Vec<String>>,
+    ) -> Result<Expression, SimplifyError> {
+        let mut rule = "";
+        let result = match (lhs, rhs) {
+            // a/0 => DivisionByZero
+            (_, Expression::Number(numeral::Numeral::Integer(0))) => {
+                Err(SimplifyError::DivisionByZero)
+            }
+            // a/1 => a
+            (lhs, Expression::Number(numeral::Numeral::Integer(1))) => Ok(lhs),
+            // 0/a => 0
+            (Expression::Number(numeral::Numeral::Integer(0)), _) => Ok(Expression::integer(0)),
+            // a/a => 1
+            (lhs, rhs) if lhs.is_equal(&rhs) => Ok(Expression::integer(1)),
+            (
+                Expression::Number(numeral::Numeral::Integer(a)),
+                Expression::Number(numeral::Numeral::Integer(b)),
+            ) => Ok(Expression::integer(a / b)),
+            // a/(b/c) => (a*c)/b
+            (lhs, Expression::Division(rhs1, rhs2)) => Expression::Division(
+                Box::new(Expression::Multiplication(vec![lhs, *rhs2.clone()])),
+                rhs1,
+            )
+            .simplify(explanation),
             // (a/b)/c => a/(b*c)
             (Expression::Division(lhs1, lhs2), rhs) => {
                 rule = "using (a/b)/c => a/(b*c)";
