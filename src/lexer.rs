@@ -1,5 +1,4 @@
 use core::fmt;
-use std::fmt::write;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {

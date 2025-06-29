@@ -12,7 +12,6 @@ fn lex(input: &str) -> Vec<Token> {
 #[cfg(test)]
 mod tests_bad_lex {
     use crate::lex;
-    use sym_rustic::ast::Expression;
     use sym_rustic::lexer::Token;
     use sym_rustic::parser::{ParseError, Parser};
 

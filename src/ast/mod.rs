@@ -13,7 +13,6 @@ pub mod function;
 mod multiplication;
 mod negation;
 pub mod numeral;
-pub mod prints;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum SimplifyError {
@@ -76,6 +75,11 @@ impl Expression {
 
     pub fn negation(arg: Expression) -> Expression {
         Expression::Negation(Box::new(arg))
+    }
+
+    pub fn complex(lhs: Expression, rhs: Expression) -> Expression {
+        Expression::Complex(
+            Box::new(lhs), Box::new(rhs))
     }
 
     pub fn variable(name: &str) -> Expression {
