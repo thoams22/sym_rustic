@@ -1,4 +1,4 @@
-use crate::utils;
+use crate::{explanation::{FormattingObserver, SimplificationObserver}, utils};
 
 use super::{Expression, SimplifyError, function, numeral};
 
@@ -7,7 +7,7 @@ impl Expression {
         &mut self,
         lhs: Expression,
         rhs: Expression,
-        explanation: &mut Option<Vec<String>>,
+        explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
         let mut rule = "";
         let result = match (lhs, rhs) {
@@ -125,14 +125,14 @@ impl Expression {
             (lhs, rhs) => Ok(Expression::Exponentiation(Box::new(lhs), Box::new(rhs))),
         };
 
-        if !rule.is_empty() {
-            if let Some(explanation) = explanation {
-                explanation.push(format!(
-                    "Simplifiyng Exponentiation {}",
-                    rule,
-                ));
-            }
-        }
+        // if !rule.is_empty() {
+        //     if let Some(explanation) = explanation {
+        //         explanation.push(format!(
+        //             "Simplifiyng Exponentiation {}",
+        //             rule,
+        //         ));
+        //     }
+        // }
 
         result
     }

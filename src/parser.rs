@@ -251,7 +251,6 @@ impl<'a> Parser<'a> {
                 let var = self.parse_variable(variable)?;
                 Ok(Expression::Variable(var))
             }
-            Some(Token::LeftParen) => self.parse_functions(variable),
             Some(Token::Caret) | Some(Token::Divide) if variable == "d" => {
                 let position = self.position;
                 match self.parse_derivative() {
@@ -262,6 +261,7 @@ impl<'a> Parser<'a> {
                     },
                 }
             }
+            Some(Token::LeftParen) => self.parse_functions(variable),
             _ => match variable.as_str() {
                 "tau" => Ok(Expression::Constant(crate::ast::constant::Constant::Tau)),
                 "pi" => Ok(Expression::Constant(crate::ast::constant::Constant::Pi)),

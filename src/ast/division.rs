@@ -1,12 +1,11 @@
-use crate::ast::{Expression, SimplifyError, numeral};
+use crate::{ast::{numeral::{self, Numeral}, Expression, SimplifyError}, explanation::{FormattingObserver, SimplificationObserver}};
 
 impl Expression {
     pub fn simplify_division(
         &mut self,
         lhs: Expression,
         rhs: Expression,
-        explanation: &mut Option<Vec<String>>,
-    ) -> Result<Expression, SimplifyError> {
+        explanation: &mut Option<Box<FormattingObserver>>,    ) -> Result<Expression, SimplifyError> {
         let mut rule = "";
         let result = match (lhs, rhs) {
             // a/0 => DivisionByZero
@@ -22,7 +21,11 @@ impl Expression {
             (
                 Expression::Number(numeral::Numeral::Integer(a)),
                 Expression::Number(numeral::Numeral::Integer(b)),
-            ) => Ok(Expression::integer(a / b)),
+            ) => Ok(Expression::Number(Numeral::Rational(a, b).simplify(explanation)?)),
+            // a/b where a & b are numeral
+            (Expression::Number(lhs), Expression::Number(rhs)) => {
+                Ok(Expression::Number(lhs.div(&rhs)))
+            }
             // a/(b/c) => (a*c)/b
             (lhs, Expression::Division(rhs1, rhs2)) => Expression::Division(
                 Box::new(Expression::Multiplication(vec![lhs, *rhs2.clone()])),
@@ -53,6 +56,20 @@ impl Expression {
                 )))
                 .simplify(explanation)
             }
+            // a^x / a => a^(x-1)
+            (Expression::Exponentiation(base, exp), rhs) if base.is_equal(&rhs) => {
+                rule = "using a^x / a => a^(x-1)";
+                Expression::Exponentiation(
+                    base,
+                    Box::new(Expression::Addition(vec![
+                        *exp,
+                        Expression::Negation(Box::new(Expression::Number(
+                            numeral::Numeral::Integer(1),
+                        ))),
+                    ])),
+                )
+                .simplify(explanation)
+            }
             // a^x / a^y => a^(x-y)
             (
                 Expression::Exponentiation(lhs_base, lhs_exp),
@@ -64,20 +81,6 @@ impl Expression {
                     Box::new(Expression::Addition(vec![
                         *lhs_exp,
                         Expression::Negation(Box::new(*rhs_exp)),
-                    ])),
-                )
-                .simplify(explanation)
-            }
-            // a^x / a => a^(x-1)
-            (Expression::Exponentiation(base, exp), rhs) if base.is_equal(&rhs) => {
-                rule = "using a^x / a => a^(x-1)";
-                Expression::Exponentiation(
-                    base,
-                    Box::new(Expression::Addition(vec![
-                        *exp,
-                        Expression::Negation(Box::new(Expression::Number(
-                            numeral::Numeral::Integer(1),
-                        ))),
                     ])),
                 )
                 .simplify(explanation)
@@ -122,13 +125,13 @@ impl Expression {
             .simplify(explanation),
         };
 
-        if let Some(explanation) = explanation {
-            explanation.push(format!(
-                "Simplifying Division {}: {}",
-                rule,
-                result.clone()?
-            ));
-        }
+        // if let Some(explanation) = explanation {
+        //     explanation.push(format!(
+        //         "Simplifying Division {}: {}",
+        //         rule,
+        //         result.clone()?
+        //     ));
+        // }
 
         result
     }

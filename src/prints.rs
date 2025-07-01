@@ -174,15 +174,13 @@ impl Expression {
     /// let result = " 2    \nx  + 5";
     /// ```
     pub fn print_console(&self) {
-        println!("{}\n", self.print_aa())
+        println!("{}\n", self.get_processed())
     }
 
-    pub fn print_aa(&self) -> String {
+    pub fn get_processed(&self) -> String {
         let mut memoization: HashMap<Expression, (usize, usize)> = HashMap::new();
         let mut position: Vec<(String, (usize, usize))> = Vec::new();
-        self.calculate_aa(&mut memoization, &mut position, (0, 0));
-
-        // println!("{:?}", position);
+        self.calculate_positions(&mut memoization, &mut position, (0, 0));
 
         let length = self.get_length(&mut memoization);
         let height = self.get_height(&mut memoization);
@@ -239,7 +237,7 @@ impl Expression {
         }
     }
 
-    fn calculate_aa(
+    fn calculate_positions(
         &self,
         memoization: &mut HashMap<Expression, (usize, usize)>,
         position: &mut Vec<(String, (usize, usize))>,
@@ -252,7 +250,7 @@ impl Expression {
 
                 expressions.iter().enumerate().for_each(|(i, x)| {
                     let new_height = pos.0 + below_height - x.get_below_height(memoization);
-                    x.calculate_aa(memoization, position, (new_height, pos.1));
+                    x.calculate_positions(memoization, position, (new_height, pos.1));
                     pos.1 += x.get_length(memoization);
                     if i < expressions.len() - 1 {
                         position.push((" ".to_string(), (pos.0 + below_height, pos.1)));
@@ -270,7 +268,7 @@ impl Expression {
 
                 expressions.iter().enumerate().for_each(|(i, x)| {
                     let new_height = pos.0 + below_height - x.get_below_height(memoization);
-                    x.calculate_aa(memoization, position, (new_height, pos.1));
+                    x.calculate_positions(memoization, position, (new_height, pos.1));
                     pos.1 += x.get_length(memoization);
                     if i < expressions.len() - 1 {
                         position.push((" ".to_string(), (pos.0 + below_height, pos.1)));
@@ -284,7 +282,7 @@ impl Expression {
             }
             Expression::Subtraction(a, b) => {
                 let mut pos = prev_pos;
-                a.calculate_aa(memoization, position, pos);
+                a.calculate_positions(memoization, position, pos);
                 pos.1 += a.get_length(memoization);
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
@@ -292,7 +290,7 @@ impl Expression {
                 pos.1 += 1;
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
-                b.calculate_aa(memoization, position, pos);
+                b.calculate_positions(memoization, position, pos);
             }
             Expression::Division(n, d) => {
                 let length = self.get_length(memoization);
@@ -311,10 +309,10 @@ impl Expression {
 
                 if !top {
                     pos.1 += span;
-                    d.calculate_aa(memoization, position, pos);
+                    d.calculate_positions(memoization, position, pos);
                     pos.1 -= span;
                 } else {
-                    d.calculate_aa(memoization, position, pos);
+                    d.calculate_positions(memoization, position, pos);
                 }
 
                 pos.0 += bottom_height;
@@ -329,10 +327,10 @@ impl Expression {
 
                 if top {
                     pos.1 += span;
-                    n.calculate_aa(memoization, position, pos);
+                    n.calculate_positions(memoization, position, pos);
                     pos.1 -= span;
                 } else {
-                    n.calculate_aa(memoization, position, pos);
+                    n.calculate_positions(memoization, position, pos);
                 }
             }
             Expression::Exponentiation(b, e) => {
@@ -348,7 +346,7 @@ impl Expression {
                     Self::calculate_parenthesis(position, pos, true, b.get_height(memoization));
                     pos.1 += 1;
                 }
-                b.calculate_aa(memoization, position, pos);
+                b.calculate_positions(memoization, position, pos);
                 pos.1 += b.get_length(memoization);
                 if matches!(
                     **b,
@@ -362,11 +360,11 @@ impl Expression {
                     pos.1 += 1;
                 }
                 pos.0 += b.get_height(memoization);
-                e.calculate_aa(memoization, position, pos);
+                e.calculate_positions(memoization, position, pos);
             }
             Expression::Equality(a, b) => {
                 let mut pos = prev_pos;
-                a.calculate_aa(memoization, position, pos);
+                a.calculate_positions(memoization, position, pos);
                 pos.1 += a.get_length(memoization);
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
@@ -374,11 +372,11 @@ impl Expression {
                 pos.1 += 1;
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
-                b.calculate_aa(memoization, position, pos);
+                b.calculate_positions(memoization, position, pos);
             }
             Expression::Complex(a, b) => {
                 let mut pos = prev_pos;
-                a.calculate_aa(memoization, position, pos);
+                a.calculate_positions(memoization, position, pos);
                 pos.1 += a.get_length(memoization);
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
@@ -386,7 +384,7 @@ impl Expression {
                 pos.1 += 1;
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
-                b.calculate_aa(memoization, position, pos);
+                b.calculate_positions(memoization, position, pos);
                 pos.1 += b.get_length(memoization);
                 position.push(("i".to_string(), pos));
             }
@@ -406,7 +404,7 @@ impl Expression {
                 pos.1 += 1;
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
-                a.calculate_aa(memoization, position, pos);
+                a.calculate_positions(memoization, position, pos);
             }
             Expression::Function(function, expressions) => {
                 let mut pos = prev_pos;
@@ -419,7 +417,7 @@ impl Expression {
                 Self::calculate_parenthesis(position, pos, true, height);
                 pos.1 += 1;
                 expressions.iter().for_each(|x| {
-                    x.calculate_aa(memoization, position, pos);
+                    x.calculate_positions(memoization, position, pos);
                     pos.1 += x.get_length(memoization);
                 });
                 Self::calculate_parenthesis(position, pos, false, height);
@@ -433,7 +431,7 @@ impl Expression {
                 Box::new(Expression::integer(*num)),
                 Box::new(Expression::integer(*den)),
             )
-            .calculate_aa(memoization, position, prev_pos),
+            .calculate_positions(memoization, position, prev_pos),
             Expression::Derivative(expr, var, order) => {
                 let length = var.len()
                     + 2
@@ -509,7 +507,7 @@ impl Expression {
                 //      order
                 // d var
                 let height = new_height - expr.get_below_height(memoization);
-                expr.calculate_aa(memoization, position, (height, pos.1 + length + 1));
+                expr.calculate_positions(memoization, position, (height, pos.1 + length + 1));
             }
         }
     }

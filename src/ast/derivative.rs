@@ -1,5 +1,7 @@
 use std::vec;
 
+use crate::explanation::{FormattingObserver, SimplificationObserver};
+
 use super::{constant::Constant, function::Function, Expression, SimplifyError};
 
 impl Expression {
@@ -7,7 +9,7 @@ impl Expression {
         &self,
         variable: &str,
         order: u32,
-        explanation: &mut Option<Vec<String>>,
+        explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
         if order == 0 {
             return Ok(self.clone());
@@ -24,7 +26,7 @@ impl Expression {
     pub fn differentiate(
         &self,
         variable: &str,
-        explanation: &mut Option<Vec<String>>,
+        explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
         let mut rule = "";
         let mut result =  match self {
@@ -170,11 +172,11 @@ impl Expression {
             }
         };
 
-        if let Some(explanation) = explanation {
-            if !rule.is_empty() {
-                explanation.push(rule.to_string());
-            }
-        }
+        // if let Some(explanation) = explanation {
+        //     if !rule.is_empty() {
+        //         explanation.push(rule.to_string());
+        //     }
+        // }
         result.simplify(explanation)
     }
 
@@ -182,7 +184,7 @@ impl Expression {
         func: &Function,
         args: &Vec<Expression>,
         variable: &str,
-        explanation: &mut Option<Vec<String>>,
+        explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
         let rule;
         let mut result = match func {
@@ -697,11 +699,11 @@ impl Expression {
             Function::Abs | Function::Ceil | Function::Floor => return Err(SimplifyError::Unsupported),
         };
 
-        if let Some(explanation) = explanation {
-            if !rule.is_empty() {
-                explanation.push(rule.to_string());
-            }
-        }
+        // if let Some(explanation) = explanation {
+        //     if !rule.is_empty() {
+        //         explanation.push(rule.to_string());
+        //     }
+        // }
 
         result.simplify(explanation)
     }

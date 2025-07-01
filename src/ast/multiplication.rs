@@ -1,3 +1,5 @@
+use crate::{ast::numeral::Numeral, explanation::FormattingObserver};
+
 use super::{Expression, SimplifyError, numeral};
 
 impl Expression {
@@ -5,17 +7,17 @@ impl Expression {
     pub(crate) fn simplify_multiplication(
         &self,
         simplified_terms: Vec<Expression>,
-        explanation: &mut Option<Vec<String>>,
+        explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
         let mut result = simplified_terms;
-        let mut prod = 1;
+        let mut prod  = Numeral::Integer(1);
         let mut negative: bool = false;
 
         let mut i = 0;
         while i < result.len() {
             match &result[i] {
-                Expression::Number(numeral::Numeral::Integer(n)) => {
-                    prod *= n;
+                Expression::Number(num) => {
+                    prod = prod.mul(num);
                     result.swap_remove(i);
                 }
                 Expression::Multiplication(inner_terms) => {
@@ -30,10 +32,10 @@ impl Expression {
             }
         }
 
-        if prod == 0 {
-            return Ok(Expression::Number(numeral::Numeral::Integer(0)));
-        } else if prod != 1 {
-            result.push(Expression::Number(numeral::Numeral::Integer(prod)));
+        if prod.is_zero() {
+            return Ok(Expression::integer(0));
+        } else if !prod.is_one() {
+            result.push(Expression::Number(prod));
         }
 
         let mut rule = "";
@@ -47,12 +49,13 @@ impl Expression {
                     (Expression::Number(numeral::Numeral::Integer(0)), _)
                     | (_, Expression::Number(numeral::Numeral::Integer(0))) => {
                         if let Some(explanation) = explanation {
-                            explanation.push(format!(
-                                "Multiplying by zero: {} * 0 => 0",
-                                Expression::Multiplication(result.clone())
-                            ));
+                            explanation.rule_applied(
+                                "Multiplying by zero",
+                                &Expression::Multiplication(result.clone()),
+                                &Expression::integer(0)
+                            );
                         }
-                        return Ok(Expression::Number(numeral::Numeral::Integer(0)));
+                        return Ok(Expression::integer(0));
                     }
                     // a * mult => expand mult
                     (_, Expression::Multiplication(mult)) => {
@@ -205,16 +208,16 @@ impl Expression {
                     }
                     _ => j += 1,
                 }
-                if !rule.is_empty() {
-                    if let Some(explanation) = explanation {
-                        explanation.push(format!(
-                            "Simplifying Multiplication {}: {}",
-                            rule,
-                            Expression::Multiplication(result.clone())
-                        ));
-                    }
-                    rule = "";
-                }
+                // if !rule.is_empty() {
+                //     if let Some(explanation) = explanation {
+                //         explanation.push(format!(
+                //             "Simplifying Multiplication {}: {}",
+                //             rule,
+                //             Expression::Multiplication(result.clone())
+                //         ));
+                //     }
+                //     rule = "";
+                // }
             }
             i += 1
         }

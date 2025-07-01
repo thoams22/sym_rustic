@@ -167,7 +167,7 @@ mod print_tests {
     }
 
     #[test]
-    fn test_print_aa() {
+    fn test_get_processed() {
         let expr = Expression::Exponentiation(
             Box::new(Expression::Addition(vec![
                 Expression::Variable("a".to_string()),
@@ -176,7 +176,7 @@ mod print_tests {
             Box::new(Expression::integer(2)),
         );
         let expected = "       2\n(a + b) ";
-        assert_eq!(expr.print_aa(), expected);
+        assert_eq!(expr.get_processed(), expected);
 
         let expr2 = Expression::Division(
             Box::new(Expression::Variable("a".to_string())),
@@ -186,7 +186,7 @@ mod print_tests {
             ])),
         );
         let expected2 = "  a  \n-----\na + b";
-        assert_eq!(expr2.print_aa(), expected2);
+        assert_eq!(expr2.get_processed(), expected2);
 
         let expr3 = Expression::Exponentiation(
             Box::new(Expression::Exponentiation(
@@ -196,7 +196,7 @@ mod print_tests {
             Box::new(Expression::integer(6)),
         );
         let expected3 = "    6\n/ 2\\ \n\\a / ";
-        assert_eq!(expr3.print_aa(), expected3);
+        assert_eq!(expr3.get_processed(), expected3);
 
         let expr4 = Expression::Multiplication(vec![
             Expression::integer(3),
@@ -210,7 +210,7 @@ mod print_tests {
             ),
         ]);
         let expected4 = "     2    4\n3 * a  * b ";
-        assert_eq!(expr4.print_aa(), expected4);
+        assert_eq!(expr4.get_processed(), expected4);
 
         let expr5 = Expression::Function(
             Function::Sqrt,
@@ -226,7 +226,7 @@ mod print_tests {
             ])],
         );
         let expected5 = "    / x + y    \\\nsqrt\\a      + b/";
-        assert_eq!(expr5.print_aa(), expected5);
+        assert_eq!(expr5.get_processed(), expected5);
 
         let expr6 = Expression::Addition(vec![
             Expression::Multiplication(vec![
@@ -264,7 +264,7 @@ mod print_tests {
         // expr6.print_console();
         // 4*x^3 + ln(2)*x^2 + 3/(2*x^3^y)^4
         let expected6 = "     3            2       3     \n4 * x  + ln(2) * x  + ----------\n                               4\n                      /      y\\ \n                      |     3 | \n                      \\2 * x  / ";
-        assert_eq!(expr6.print_aa(), expected6);
+        assert_eq!(expr6.get_processed(), expected6);
 
         let expr7 = Expression::Multiplication(vec![
             Expression::integer(2),
@@ -284,7 +284,7 @@ mod print_tests {
         // expr7.print_console();
 
         let expected7 = "    4    6\n2 * -- * -\n     4   4\n    4     ";
-        assert_eq!(expr7.print_aa(), expected7);
+        assert_eq!(expr7.get_processed(), expected7);
 
         let expr8 = Expression::Exponentiation(
             Box::new(Expression::Division(
@@ -298,19 +298,19 @@ mod print_tests {
         );
         // expr8.print_console();
         let expected8 = "        4\n/6 + 10\\ \n|------| \n\\  4   / ";
-        assert_eq!(expr8.print_aa(), expected8);
+        assert_eq!(expr8.get_processed(), expected8);
 
         let expr9 = Expression::rational(143, 12);
 
         let expected9 = "143\n---\n12 ";
-        assert_eq!(expr9.print_aa(), expected9);
+        assert_eq!(expr9.get_processed(), expected9);
 
         let expr10 = Expression::Derivative(
             Box::new(Expression::Constant(Constant::Tau)),
             "x".to_string(),
             1,
         );
-        assert_eq!(expr10.print_aa(), "d      \n--- tau\nd x    ");
+        assert_eq!(expr10.get_processed(), "d      \n--- tau\nd x    ");
 
         let expr11 = Expression::Derivative(
             Box::new(Expression::Division(
@@ -324,7 +324,7 @@ mod print_tests {
             2,
         );
         assert_eq!(
-            expr11.print_aa(),
+            expr11.get_processed(),
             "  2         \n d       a  \n------ -----\n     2 a + b\nd a_1       "
         );
 
@@ -350,7 +350,7 @@ mod print_tests {
         );
         //expr12.print_console();
         assert_eq!(
-            expr12.print_aa(),
+            expr12.get_processed(),
             "  10              \n d          3     \n------- ----------\n     10          4\nd a_1   /      y\\ \n        |     3 | \n        \\2 * x  / "
         );
 
@@ -390,7 +390,7 @@ mod print_tests {
         ]);
         // expr13.print_console();
         assert_eq!(
-            expr13.print_aa(),
+            expr13.get_processed(),
             "                          2\n             /          2\\ \n             |/       2\\ | \n             ||/    2\\ | | \n    3        |||/ 2\\ | | | \n---------- + \\\\\\\\2 / / / / \n         4                 \n/      y\\                  \n|     3 |                  \n\\2 * x  /                  "
         );
     }

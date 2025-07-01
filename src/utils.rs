@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ast::Expression;
+use crate::ast::{numeral, Expression};
 
 pub fn gcd(mut a: u64, mut b: u64) -> u64 {
 
@@ -175,6 +175,40 @@ fn find_permutations_with_sum(m: usize, n: u64) -> Vec<Vec<u64>> {
     backtrack(m, n, 0, &mut current_permutation, &mut result);
 
     result
+}
+
+/// Transform a `Vec<Expression>` representing an `Expression::Multiplication` into 
+/// a tuple that represent the terms with the sign and the coefficient separate.
+/// 
+/// The form is (negative, coefficient, terms)
+pub fn transform_multiplication(terms: Vec<Expression>) -> (bool, u64, Vec<Expression>) {
+    let mut negative = false;
+    let mut coeff = 1;
+    let mut striped_terms = vec![];
+
+    terms
+    .iter().for_each(|term| {
+        match term {
+            Expression::Negation(inner) => {
+                if let Expression::Number(numeral::Numeral::Integer(a)) =
+                    **inner
+                {
+                    coeff *= a;
+                    negative = !negative;
+                } else {
+                    striped_terms.push(term.clone());
+                }
+            }
+            Expression::Number(numeral::Numeral::Integer(a)) => {
+                coeff *= a;
+            }
+            _ => {
+                striped_terms.push(term.clone());
+            }
+        }
+    });
+
+    (negative, coeff, striped_terms)
 }
 
 // pub fn isolate(expression: Expression, variable: Expression) -> Result<Expression, > {

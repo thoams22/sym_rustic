@@ -1,6 +1,6 @@
 use function::Function;
 
-use crate::ast::constant::Constant;
+use crate::{ast::{constant::Constant, numeral::Numeral}, explanation::{ExplanationFormatter, FormattingObserver, SimplificationObserver}};
 
 mod addition;
 mod complex;
@@ -189,6 +189,16 @@ impl Expression {
     pub fn root(arg: Expression, order: Expression) -> Expression {
         Expression::Function(function::Function::Log, vec![order, arg])
     }
+
+    pub fn e() -> Expression {
+        Expression::Constant(Constant::E)
+    }
+    pub fn pi() -> Expression {
+        Expression::Constant(Constant::Pi)
+    }
+    pub fn tau() -> Expression {
+        Expression::Constant(Constant::Tau)
+    }
 }
 
 impl std::fmt::Display for Expression {
@@ -226,16 +236,10 @@ impl std::fmt::Display for Expression {
 impl Expression {
     pub fn simplify(
         &mut self,
-        explanation: &mut Option<Vec<String>>,
+        explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
         match self {
             Expression::Addition(terms) => {
-                if let Some(explanation) = explanation {
-                    explanation.push(format!(
-                        "Simplifying Addition: {}",
-                        Expression::Addition(terms.clone())
-                    ));
-                }
                 let simplified_terms: Vec<Expression> = terms
                     .iter_mut()
                     .map(|term| term.simplify(explanation))
@@ -243,12 +247,6 @@ impl Expression {
                 self.simplify_addition(simplified_terms, explanation)
             }
             Expression::Subtraction(lhs, rhs) => {
-                if let Some(explanation) = explanation {
-                    explanation.push(format!(
-                        "Simplifying Subtraction: {}",
-                        Expression::Subtraction(lhs.clone(), rhs.clone())
-                    ));
-                }
                 let lhs = lhs.simplify(explanation)?;
                 let rhs = rhs.simplify(explanation)?;
                 match (lhs, rhs) {
@@ -263,12 +261,6 @@ impl Expression {
                 }
             }
             Expression::Multiplication(terms) => {
-                if let Some(explanation) = explanation {
-                    explanation.push(format!(
-                        "Simplifying Multiplication: {}",
-                        Expression::Multiplication(terms.clone())
-                    ));
-                }
                 let simplified_terms: Vec<Expression> = terms
                     .iter_mut()
                     .map(|term| term.simplify(explanation))
@@ -276,35 +268,17 @@ impl Expression {
                 self.simplify_multiplication(simplified_terms, explanation)
             }
             Expression::Division(lhs, rhs) => {
-                if let Some(explanation) = explanation {
-                    explanation.push(format!(
-                        "Simplifying Division: {}",
-                        Expression::Division(lhs.clone(), rhs.clone())
-                    ));
-                }
                 let lhs = lhs.simplify(explanation)?;
                 let rhs = rhs.simplify(explanation)?;
                 self.simplify_division(lhs, rhs, explanation)
             }
             Expression::Exponentiation(lhs, rhs) => {
-                if let Some(explanation) = explanation {
-                    explanation.push(format!(
-                        "Simplifying Exponentiation: {}",
-                        Expression::Exponentiation(lhs.clone(), rhs.clone())
-                    ));
-                }
                 let lhs = lhs.simplify(explanation)?;
                 let rhs = rhs.simplify(explanation)?;
 
                 self.simplify_exponentiation(lhs, rhs, explanation)
             }
             Expression::Negation(expr) => {
-                if let Some(explanation) = explanation {
-                    explanation.push(format!(
-                        "Simplifying Negation: {}",
-                        Expression::Negation(expr.clone())
-                    ));
-                }
                 let expr = expr.simplify(explanation)?;
                 match expr {
                     // --a => a
@@ -336,6 +310,13 @@ impl Expression {
                         Box::new(Expression::Negation(imag)),
                     )
                     .simplify(explanation),
+                    // -(a + b) => -a - b
+                    Expression::Addition(add) => {
+                        let terms = add.iter().map(
+                            |elem| Expression::negation(elem.clone())
+                        ).collect();
+                        Expression::Addition(terms).simplify(explanation)
+                    }
                     // -0 => 0
                     Expression::Number(numeral::Numeral::Integer(0)) => {
                         Ok(Expression::Number(numeral::Numeral::Integer(0)))
@@ -344,12 +325,6 @@ impl Expression {
                 }
             }
             Expression::Complex(real, imag) => {
-                if let Some(explanation) = explanation {
-                    explanation.push(format!(
-                        "Simplifying Complex: {}",
-                        Expression::Complex(real.clone(), imag.clone())
-                    ));
-                }
                 let real = real.simplify(explanation)?;
                 let imag = imag.simplify(explanation)?;
                 if imag == Expression::Number(numeral::Numeral::Integer(0)) {
@@ -359,23 +334,11 @@ impl Expression {
                 }
             }
             Expression::Equality(lhs, rhs) => {
-                if let Some(explanation) = explanation {
-                    explanation.push(format!(
-                        "Simplifying Equality: {}",
-                        Expression::Equality(lhs.clone(), rhs.clone())
-                    ));
-                }
                 let lhs = lhs.simplify(explanation)?;
                 let rhs = rhs.simplify(explanation)?;
                 Ok(Expression::Equality(Box::new(lhs), Box::new(rhs)))
             }
             Expression::Function(func, args) => {
-                if let Some(explanation) = explanation {
-                    explanation.push(format!(
-                        "Simplifying Function: {}",
-                        Expression::Function(func.clone(), args.clone())
-                    ));
-                }
                 let args: Vec<Expression> = args
                     .iter_mut()
                     .map(|arg| arg.simplify(explanation))
@@ -440,8 +403,8 @@ impl Expression {
 }
 
 impl Expression {
+    /// Returns `true` if the two `Expression` are equal and `false` otherwise
     pub fn is_equal(&self, other: &Expression) -> bool {
-        // Implement logic to check if two expressions are equal
         match (self, other) {
             (Expression::Number(lhs), Expression::Number(rhs)) => match (lhs, rhs) {
                 (numeral::Numeral::Integer(a), numeral::Numeral::Integer(b)) => a == b,
@@ -487,7 +450,12 @@ impl Expression {
     }
 
     // TODO Refactor to order the inside also
+    /// Returns `true` if the two vector are equal and `false` otherwise
     pub fn compare_expression_vectors(lhs: &Vec<Expression>, rhs: &Vec<Expression>) -> bool {
+        if rhs.len() != lhs.len() {
+            return false;
+        }
+
         let mut rhs = rhs.clone();
 
         lhs.iter().all(|expr| {
