@@ -1,6 +1,9 @@
 use function::Function;
 
-use crate::{ast::{constant::Constant, numeral::Numeral}, explanation::{ExplanationFormatter, FormattingObserver, SimplificationObserver}};
+use crate::{
+    ast::{constant::Constant, numeral::Numeral},
+    explanation::FormattingObserver,
+};
 
 mod addition;
 mod complex;
@@ -44,6 +47,7 @@ pub enum Expression {
     Derivative(Box<Expression>, String, u32),
     // Integral(Box<Expression>, String),
     // Limit
+
     // Series
     // Summation
     // Product
@@ -78,8 +82,7 @@ impl Expression {
     }
 
     pub fn complex(lhs: Expression, rhs: Expression) -> Expression {
-        Expression::Complex(
-            Box::new(lhs), Box::new(rhs))
+        Expression::Complex(Box::new(lhs), Box::new(rhs))
     }
 
     pub fn variable(name: &str) -> Expression {
@@ -94,8 +97,8 @@ impl Expression {
         Expression::Division(Box::new(lhs), Box::new(rhs))
     }
 
-    pub fn derivative(expr: Expression, variable: String, order: u32) -> Expression {
-        Expression::Derivative(Box::new(expr), variable, order)
+    pub fn derivative(expr: Expression, variable: &str, order: u32) -> Expression {
+        Expression::Derivative(Box::new(expr), variable.to_string(), order)
     }
 
     pub fn sin(arg: Expression) -> Expression {
@@ -201,32 +204,144 @@ impl Expression {
     }
 }
 
+// print functions
+impl Expression {
+    /// Check wether the `Expression` can be printed as one continuous
+    fn is_single(&self) -> bool {
+        match self {
+            Expression::Variable(_)
+            | Expression::Constant(_)
+            | Expression::Function(_, _)
+            | Expression::Number(Numeral::Integer(_)) => true,
+            Expression::Exponentiation(base, exp) => base.is_single() && exp.is_single(),
+            _ => false,
+        }
+    }
+}
+
 impl std::fmt::Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Expression::Addition(terms) => {
-                let terms: Vec<String> = terms.iter().map(|term| term.to_string()).collect();
-                write!(f, "[{}]", terms.join("] + ["))
+                let terms: Vec<String> = terms
+                    .iter()
+                    .map(|term| {
+                        if term.is_single() {
+                            term.to_string()
+                        } else {
+                            format!("({})", term)
+                        }
+                    })
+                    .collect();
+                write!(f, "{}", terms.join(" + "))
             }
-            Expression::Subtraction(lhs, rhs) => write!(f, "{} - ({})", lhs, rhs),
             Expression::Multiplication(terms) => {
-                let terms: Vec<String> = terms.iter().map(|term| term.to_string()).collect();
-                write!(f, "{{{}}}", terms.join("} * {"))
+                let terms: Vec<String> = terms
+                    .iter()
+                    .map(|term| {
+                        if term.is_single() {
+                            term.to_string()
+                        } else {
+                            format!("({})", term)
+                        }
+                    })
+                    .collect();
+                write!(f, "{}", terms.join(" * "))
             }
-            Expression::Division(lhs, rhs) => write!(f, "({}) / ({})", lhs, rhs),
-            Expression::Exponentiation(lhs, rhs) => write!(f, "({}) ^ ({})", lhs, rhs),
+            Expression::Subtraction(lhs, rhs) => write!(
+                f,
+                "{} - {}",
+                lhs,
+                if rhs.is_single() {
+                    format!("{}", rhs)
+                } else {
+                    format!("({})", rhs)
+                }
+            ),
+            Expression::Division(lhs, rhs) => write!(
+                f,
+                "{}/{}",
+                if lhs.is_single() {
+                    format!("{}", lhs)
+                } else {
+                    format!("({})", lhs)
+                },
+                if rhs.is_single() {
+                    format!("{}", rhs)
+                } else {
+                    format!("({})", rhs)
+                }
+            ),
+            Expression::Exponentiation(lhs, rhs) => write!(
+                f,
+                "{}^{}",
+                if lhs.is_single() {
+                    format!("{}", lhs)
+                } else {
+                    format!("({})", lhs)
+                },
+                if rhs.is_single() {
+                    format!("{}", rhs)
+                } else {
+                    format!("({})", rhs)
+                }
+            ),
             Expression::Equality(lhs, rhs) => write!(f, "{} = {}", lhs, rhs),
-            Expression::Complex(real, imag) => write!(f, "{} + ({})i", real, imag),
+            Expression::Complex(real, imag) => write!(
+                f,
+                "{}i*{}",
+                if real.is_equal(&Expression::integer(0)) {
+                    format!("")
+                } else {
+                    format!("{} + ", real)
+                },
+                if imag.is_single() {
+                    format!("{}", imag)
+                } else {
+                    format!("({})", imag)
+                }
+            ),
             Expression::Number(n) => write!(f, "{}", n),
             Expression::Variable(name) => write!(f, "{}", name),
             Expression::Constant(constant) => write!(f, "{}", constant),
-            Expression::Negation(expr) => write!(f, "-({})", expr),
+            Expression::Negation(expr) => write!(
+                f,
+                "-{}",
+                if expr.is_single() {
+                    format!("{}", expr)
+                } else {
+                    format!("({})", expr)
+                }
+            ),
             Expression::Function(func, args) => {
                 let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
                 write!(f, "{}({})", func, args.join(", "))
             }
             Expression::Derivative(expr, variable, order) => {
-                write!(f, "d^{}/d({})^{} ({})", order, variable, order, expr)
+                write!(
+                    f,
+                    "d{}/d{}{} {}",
+                    if *order != 1 {
+                        format!("^{}", order)
+                    }else {
+                        "".to_string()
+                    },
+                    if variable.len() != 1 {
+                        format!("({})", variable)
+                    } else {
+                        variable.to_owned()
+                    },
+                    if *order != 1 {
+                        format!("^{}", order)
+                    }else {
+                        "".to_string()
+                    },
+                    if expr.is_single() {
+                        format!("{}", expr)
+                    } else {
+                        format!("({})", expr)
+                    }
+                )
             }
         }
     }
@@ -312,9 +427,10 @@ impl Expression {
                     .simplify(explanation),
                     // -(a + b) => -a - b
                     Expression::Addition(add) => {
-                        let terms = add.iter().map(
-                            |elem| Expression::negation(elem.clone())
-                        ).collect();
+                        let terms = add
+                            .iter()
+                            .map(|elem| Expression::negation(elem.clone()))
+                            .collect();
                         Expression::Addition(terms).simplify(explanation)
                     }
                     // -0 => 0

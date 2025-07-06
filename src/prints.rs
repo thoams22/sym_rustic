@@ -4,6 +4,7 @@ use crate::ast::{Expression, constant, numeral::Numeral};
 
 // Print functions
 impl Expression {
+
     /// Print the expression in a multiline format
     ///
     /// # Exemple
@@ -25,7 +26,11 @@ impl Expression {
     ///     * 2
     ///   + 5
     ///
-    pub fn print_tree(&self, indent: usize) -> String {
+    pub fn print_tree(&self, indent: usize) {
+        print!("{}", self.calculate_tree(indent))
+    }
+    
+    pub fn calculate_tree(&self, indent: usize) -> String  {
         let next_indent = indent + 2;
         let next_indent_str = " ".repeat(next_indent);
 
@@ -34,7 +39,7 @@ impl Expression {
                 if terms.is_empty() {
                     "0".to_string()
                 } else if terms.len() == 1 {
-                    terms[0].print_tree(indent)
+                    terms[0].calculate_tree(indent)
                 } else {
                     let mut result = String::from("Addition:\n");
                     for (i, term) in terms.iter().enumerate() {
@@ -42,7 +47,7 @@ impl Expression {
                             "{}{}{}",
                             next_indent_str,
                             "+ ",
-                            term.print_tree(next_indent)
+                            term.calculate_tree(next_indent)
                         ));
                         if i < terms.len() - 1 {
                             result.push('\n');
@@ -55,7 +60,7 @@ impl Expression {
                 if terms.is_empty() {
                     "1".to_string()
                 } else if terms.len() == 1 {
-                    terms[0].print_tree(indent)
+                    terms[0].calculate_tree(indent)
                 } else {
                     let mut result = String::from("Multiplication:\n");
                     for (i, term) in terms.iter().enumerate() {
@@ -63,7 +68,7 @@ impl Expression {
                             "{}{}{}",
                             next_indent_str,
                             "* ",
-                            term.print_tree(next_indent)
+                            term.calculate_tree(next_indent)
                         ));
                         if i < terms.len() - 1 {
                             result.push('\n');
@@ -76,45 +81,45 @@ impl Expression {
                 format!(
                     "Subtraction:\n{}{}\n{}- {}",
                     next_indent_str,
-                    lhs.print_tree(next_indent),
+                    lhs.calculate_tree(next_indent),
                     next_indent_str,
-                    rhs.print_tree(next_indent)
+                    rhs.calculate_tree(next_indent)
                 )
             }
             Expression::Division(lhs, rhs) => {
                 format!(
                     "Division:\n{}{}\n{}/ {}",
                     next_indent_str,
-                    lhs.print_tree(next_indent),
+                    lhs.calculate_tree(next_indent),
                     next_indent_str,
-                    rhs.print_tree(next_indent)
+                    rhs.calculate_tree(next_indent)
                 )
             }
             Expression::Exponentiation(lhs, rhs) => {
                 format!(
                     "Exponentiation:\n{}{}\n{}^ {}",
                     next_indent_str,
-                    lhs.print_tree(next_indent),
+                    lhs.calculate_tree(next_indent),
                     next_indent_str,
-                    rhs.print_tree(next_indent)
+                    rhs.calculate_tree(next_indent)
                 )
             }
             Expression::Equality(lhs, rhs) => {
                 format!(
                     "Equality:\n{}{}\n{}= {}",
                     next_indent_str,
-                    lhs.print_tree(next_indent),
+                    lhs.calculate_tree(next_indent),
                     next_indent_str,
-                    rhs.print_tree(next_indent)
+                    rhs.calculate_tree(next_indent)
                 )
             }
             Expression::Complex(real, imag) => {
                 format!(
                     "Complex:\n{}{}\n{}i {}",
                     next_indent_str,
-                    real.print_tree(next_indent),
+                    real.calculate_tree(next_indent),
                     next_indent_str,
-                    imag.print_tree(next_indent)
+                    imag.calculate_tree(next_indent)
                 )
             }
             Expression::Variable(name) => name.to_string(),
@@ -123,13 +128,13 @@ impl Expression {
                 format!(
                     "Negation:\n{}- {}",
                     next_indent_str,
-                    expr.print_tree(indent)
+                    expr.calculate_tree(indent)
                 )
             }
             Expression::Function(func, args) => {
                 let mut result = format!("{}(", func);
                 for (i, arg) in args.iter().enumerate() {
-                    result.push_str(&arg.print_tree(0));
+                    result.push_str(&arg.calculate_tree(0));
                     if i < args.len() - 1 {
                         result.push_str(", ");
                     }
@@ -149,7 +154,7 @@ impl Expression {
                         "".to_owned()
                     },
                     next_indent_str,
-                    expr.print_tree(next_indent),
+                    expr.calculate_tree(next_indent),
                     next_indent_str,
                     variable,
                 )

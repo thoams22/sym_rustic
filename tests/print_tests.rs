@@ -9,20 +9,20 @@ mod print_tests {
     };
 
     #[test]
-    fn test_print_tree_simple_expressions() {
+    fn test_calculate_tree_simple_expressions() {
         // Test simple expressions
         let var = Expression::Variable("x".to_string());
-        assert_eq!(var.print_tree(0), "x");
+        assert_eq!(var.calculate_tree(0), "x");
 
         let num = Expression::integer(42);
-        assert_eq!(num.print_tree(0), "42");
+        assert_eq!(num.calculate_tree(0), "42");
 
         let neg = Expression::Negation(Box::new(Expression::integer(5)));
-        assert_eq!(neg.print_tree(0), "Negation:\n  - 5");
+        assert_eq!(neg.calculate_tree(0), "Negation:\n  - 5");
     }
 
     #[test]
-    fn test_print_tree_addition() {
+    fn test_calculate_tree_addition() {
         // Test addition with multiple terms
         let add = Expression::Addition(vec![
             Expression::Variable("x".to_string()),
@@ -31,19 +31,19 @@ mod print_tests {
         ]);
 
         let expected = "Addition:\n  + x\n  + 5\n  + Negation:\n    - y";
-        assert_eq!(add.print_tree(0), expected);
+        assert_eq!(add.calculate_tree(0), expected);
 
         // Test empty addition
         let empty_add = Expression::Addition(vec![]);
-        assert_eq!(empty_add.print_tree(0), "0");
+        assert_eq!(empty_add.calculate_tree(0), "0");
 
         // Test single term addition
         let single_add = Expression::Addition(vec![Expression::integer(10)]);
-        assert_eq!(single_add.print_tree(0), "10");
+        assert_eq!(single_add.calculate_tree(0), "10");
     }
 
     #[test]
-    fn test_print_tree_multiplication() {
+    fn test_calculate_tree_multiplication() {
         // Test multiplication with multiple terms
         let mult = Expression::Multiplication(vec![
             Expression::Variable("x".to_string()),
@@ -52,19 +52,19 @@ mod print_tests {
         ]);
 
         let expected = "Multiplication:\n  * x\n  * 2\n  * y";
-        assert_eq!(mult.print_tree(0), expected);
+        assert_eq!(mult.calculate_tree(0), expected);
 
         // Test empty multiplication
         let empty_mult = Expression::Multiplication(vec![]);
-        assert_eq!(empty_mult.print_tree(0), "1");
+        assert_eq!(empty_mult.calculate_tree(0), "1");
 
         // Test single term multiplication
         let single_mult = Expression::Multiplication(vec![Expression::integer(10)]);
-        assert_eq!(single_mult.print_tree(0), "10");
+        assert_eq!(single_mult.calculate_tree(0), "10");
     }
 
     #[test]
-    fn test_print_tree_binary_operations() {
+    fn test_calculate_tree_binary_operations() {
         // Test subtraction
         let sub = Expression::Subtraction(
             Box::new(Expression::Variable("x".to_string())),
@@ -72,7 +72,7 @@ mod print_tests {
         );
 
         let expected = "Subtraction:\n  x\n  - 5";
-        assert_eq!(sub.print_tree(0), expected);
+        assert_eq!(sub.calculate_tree(0), expected);
 
         // Test division
         let div = Expression::Division(
@@ -81,7 +81,7 @@ mod print_tests {
         );
 
         let expected = "Division:\n  x\n  / 2";
-        assert_eq!(div.print_tree(0), expected);
+        assert_eq!(div.calculate_tree(0), expected);
 
         // Test exponentiation
         let exp = Expression::Exponentiation(
@@ -90,11 +90,11 @@ mod print_tests {
         );
 
         let expected = "Exponentiation:\n  x\n  ^ 2";
-        assert_eq!(exp.print_tree(0), expected);
+        assert_eq!(exp.calculate_tree(0), expected);
     }
 
     #[test]
-    fn test_print_tree_complex_expressions() {
+    fn test_calculate_tree_complex_expressions() {
         // Test complex expressions with nested operations
         let complex = Expression::Complex(
             Box::new(Expression::Variable("a".to_string())),
@@ -102,7 +102,7 @@ mod print_tests {
         );
 
         let expected = "Complex:\n  a\n  i b";
-        assert_eq!(complex.print_tree(0), expected);
+        assert_eq!(complex.calculate_tree(0), expected);
 
         // Test equality
         let eq = Expression::Equality(
@@ -111,11 +111,11 @@ mod print_tests {
         );
 
         let expected = "Equality:\n  x\n  = 5";
-        assert_eq!(eq.print_tree(0), expected);
+        assert_eq!(eq.calculate_tree(0), expected);
     }
 
     #[test]
-    fn test_print_tree_nested_expressions() {
+    fn test_calculate_tree_nested_expressions() {
         // Test deeply nested expressions
         let nested = Expression::Addition(vec![
             Expression::Multiplication(vec![
@@ -133,11 +133,11 @@ mod print_tests {
         ]);
 
         let expected = "Addition:\n  + Multiplication:\n    * x\n    * 2\n  + Division:\n    y\n    / 3\n  + Exponentiation:\n    z\n    ^ 2";
-        assert_eq!(nested.print_tree(0), expected);
+        assert_eq!(nested.calculate_tree(0), expected);
     }
 
     #[test]
-    fn test_print_tree_function() {
+    fn test_calculate_tree_function() {
         // Test function with multiple arguments
         let func = Expression::Function(
             function::Function::Sqrt,
@@ -148,11 +148,11 @@ mod print_tests {
         );
 
         let expected = "sqrt(Addition:\n  + x\n  + 1)";
-        assert_eq!(func.print_tree(0), expected);
+        assert_eq!(func.calculate_tree(0), expected);
     }
 
     #[test]
-    fn test_print_tree_with_indentation() {
+    fn test_calculate_tree_with_indentation() {
         // Test that indentation works correctly
         let expr = Expression::Addition(vec![
             Expression::Multiplication(vec![
@@ -163,7 +163,7 @@ mod print_tests {
         ]);
 
         let expected = "Addition:\n    + Multiplication:\n      * x\n      * 2\n    + 5";
-        assert_eq!(expr.print_tree(2), expected);
+        assert_eq!(expr.calculate_tree(2), expected);
     }
 
     #[test]

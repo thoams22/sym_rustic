@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::explanation::{FormattingObserver, SimplificationObserver};
+use crate::explanation::FormattingObserver;
 
 use super::{constant::Constant, function::Function, Expression, SimplifyError};
 
@@ -16,167 +16,266 @@ impl Expression {
         }
 
         let mut expr = self.clone();
+        
+        if let Some(explanation) = explanation {
+            if order != 1 {
+                explanation.open_explaination(format!("We take {order} derivative"));
+            }
+        }
 
-        for _ in 0..order {
+        for i in 0..order {
+            if let Some(explanation) = explanation {
+                if order != 1 {
+
+                explanation.open_explaination(format!("{} derivative", i + 1));
+            }}
             expr = expr.differentiate(variable, explanation)?;
         }
         expr.simplify(explanation)
     }
 
     pub fn differentiate(
-        &self,
+        &mut self,
         variable: &str,
         explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
-        let mut rule = "";
+        let before = Expression::derivative(self.clone(), variable, 1);
         let mut result =  match self {
             Expression::Number(_) => {
-                rule = "using c' => 0";
-                Expression::integer(0)},
+                let after = Expression::integer(0);
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("Derivative of a number is zero", &before, &after);
+                }
+                Ok(after)
+            },
             Expression::Constant(_) => {
-                rule = "using c' => 0";
-                Expression::integer(0)},
+                let after = Expression::integer(0);
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("Derivative of a constant is zero", &before, &after);
+                }
+                Ok(after)
+            },
             Expression::Variable(v) => {
                 if v == variable {
-                    rule = "using x' => 1";
-                    Expression::integer(1)
+                    let after = Expression::integer(1);
+                    if let Some(explanation) = explanation {
+                        explanation.rule_applied("Derivative of the derivation variable is one", &before, &after);
+                    }
+                    Ok(after)
                 } else {
-                    rule = "using c' => 0";
-                    Expression::integer(0)
+                    let after = Expression::integer(0);
+                    if let Some(explanation) = explanation {
+                        explanation.rule_applied("Derivative of an arbitrary variable is zero", &before, &after);
+                    }
+                    Ok(after)
                 }
             }
             Expression::Negation(expr) => {
-                rule = "using (-f)' => -(f')";
-                Expression::Negation(Box::new(
-                expr.differentiate(variable, explanation)?,
-            ))},
-            Expression::Addition(exprs) => {
-                rule = "using (f+g)' => f' + g'";
-                let mut derivatives = Vec::new();
-                for expr in exprs {
-                    derivatives.push(expr.differentiate(variable, explanation)?);
+                if let Some(explanation) = explanation {
+                    let after = Expression::negation(Expression::derivative(*expr.clone(), variable, 1));
+                    explanation.rule_applied("The negative constant is highlighted", &before, &after);
                 }
-                Expression::Addition(derivatives) 
+
+                Ok(Expression::negation(expr.differentiate(variable, explanation)?))
+            },
+            Expression::Addition(exprs) => {
+                if let Some(explanation) = explanation {
+                    let after = Expression::Addition(
+                            exprs.iter().map(|expr|
+                                Expression::derivative(expr.clone(), variable, 1)
+                            ).collect(),
+                    );
+                    explanation.rule_applied("Derivative of sum is given by\n(f + g)' => f' + g'", &before, &after);
+                }
+                Ok(Expression::Addition(exprs.iter_mut().map(|expr| expr.differentiate(variable, explanation))                    
+                .collect::<Result<Vec<Expression>, _>>()?))
             }
+            Expression::Subtraction(expr1, expr2) => {
+                if let Some(explanation) = explanation {
+                    let after = Expression::subtraction(
+                                Expression::derivative(*expr1.clone(), variable, 1),
+                                Expression::derivative(*expr2.clone(), variable, 1)
+                    );
+                    explanation.rule_applied("Derivative of sum is given by\n(f - g)' => f' - g'", &before, &after);
+                }
+                Ok(Expression::subtraction(
+                    expr1.differentiate(variable, explanation)?,
+                    expr2.differentiate(variable, explanation)?,
+                ))
+             },
             Expression::Multiplication(exprs) => {
-                rule = "using (f*g)' => f'*g + f*g'";
-                let first = exprs[0].clone();
-                if exprs.len() >= 2 {
+                let mut first = exprs[0].clone();
+                if let Some(explanation) = explanation {
                     if let Some(rest_expr) = exprs.get(1..) {
-                        let rest = Expression::Multiplication(rest_expr.to_vec());
-                        // let rest = Expression::Multiplication(vec![rest_expr.clone()]);
+
+                    let after = Expression::Addition(vec![
+                        Expression::Multiplication(vec![
+                            first.clone(), 
+                            Expression::derivative(Expression::Multiplication(rest_expr.to_vec()), variable, 1)
+                        ]),
+                        Expression::Multiplication(vec![
+                            Expression::derivative(first.clone(), variable, 1), 
+                            Expression::Multiplication(rest_expr.to_vec())
+                        ]),
+                    ]);
+                    explanation.rule_applied("Derivative of product is given by\n(f*g)' => f' * g + f * g'", &before, &after);
+    
+                    }
+                }
+                    if let Some(rest_expr) = exprs.get(1..) {
+                        let mut rest = Expression::Multiplication(rest_expr.to_vec());
+
                         let d_first = first.differentiate(variable, explanation)?;
                         let d_rest = rest.differentiate(variable, explanation)?;
 
-                        Expression::Addition(vec![
-                            Expression::Multiplication(vec![d_first, rest]),
+                        Ok(Expression::Addition(vec![
                             Expression::Multiplication(vec![first, d_rest]),
-                        ])
+                            Expression::Multiplication(vec![d_first, rest]),
+                        ]))
                          
                     } else {
-                        first.differentiate(variable, explanation)?
+                        first.differentiate(variable, explanation)
                     }
-                } else {
-                    first.differentiate(variable, explanation)?
-                }
             }
-            Expression::Subtraction(expr1, expr2) => {
-                rule = "using (f-g)' => f' - g'";
-                Expression::Subtraction(
-                Box::new(expr1.differentiate(variable, explanation)?),
-                Box::new(expr2.differentiate(variable, explanation)?),
-            )
-             },
             Expression::Division(num, den) => {
-                rule = "using (f/g)' => (f'*g - f*g')/g^2";
+                if let Some(explanation) = explanation {
+                    let after = Expression::division(
+                        Expression::subtraction(
+                            Expression::Multiplication(vec![
+                                Expression::derivative(*num.clone(), variable, 1), 
+                                *den.clone()
+                            ]),
+                            Expression::Multiplication(vec![*num.clone(),                                 Expression::derivative(*den.clone(), variable, 1), 
+                            ]),
+                        ),
+                        Expression::exponentiation(
+                            *den.clone(),
+                            Expression::integer(2),
+                        ),
+                    );
+                    explanation.rule_applied("Derivative of product is given by\n(f/g)' => (f'*g - f*g')/g^2", &before, &after);
+                }
                 let df = num.differentiate(variable, explanation)?;
                 let dg = den.differentiate(variable, explanation)?;
 
-                Expression::Division(
-                    Box::new(Expression::Subtraction(
-                        Box::new(Expression::Multiplication(vec![df, *den.clone()])),
-                        Box::new(Expression::Multiplication(vec![*num.clone(), dg])),
-                    )),
-                    Box::new(Expression::Exponentiation(
-                        den.clone(),
-                        Box::new(Expression::integer(2)),
-                    )),
-                )
+                Ok(Expression::division(
+                    Expression::subtraction(
+                        Expression::Multiplication(vec![df, *den.clone()]),
+                        Expression::Multiplication(vec![*num.clone(), dg]),
+                    ),
+                    Expression::exponentiation(
+                        *den.clone(),
+                        Expression::integer(2),
+                    ),
+                ))
                  
             }
             Expression::Exponentiation(base, exp) => {
                 
                 match (base.contains_var(variable), exp.contains_var(variable)) {
-                    // f^g => e^(g*ln(f)) => (g * ln(f))' * e^(g*ln(f)) => f^g * (g' * ln(f) + g * f'/f)
+                    // f^g => e^(g*ln(f)) and after it should be => (g * ln(f))' * e^(g*ln(f)) => f^g * (g' * ln(f) + g * f'/f)
                     (true, true) => {
-                        rule = "using (f^g)' => (e^(g*ln(f)))' ";
-                        Expression::Exponentiation(
-                       Box::new(Expression::Constant(Constant::E)),
-                       Box::new(Expression::Multiplication(vec![
+                        if let Some(explanation) = explanation {
+                            let after = Expression::derivative(Expression::exponentiation(
+                                Expression::Constant(Constant::E),
+                                Expression::Multiplication(vec![
+                                 *exp.clone(),
+                                 Expression::ln(*base.clone()),
+                                ])
+                             ), variable, 1);
+                            explanation.rule_applied("Derivative of exponentiation is given by\n(f^g)' => (e^(g*ln(f)))'", &before, &after);
+                        }
+                        Ok(Expression::exponentiation(
+                       Expression::Constant(Constant::E),
+                       Expression::Multiplication(vec![
                         *exp.clone(),
-                        Expression::Function(Function::Ln, vec![*base.clone()]),
-                       ]))
-                    ) },
+                        Expression::ln(*base.clone()),
+                       ])
+                    )) },
                     // f^a => a * f^(a-1)
                     (true, false) => {
-                        rule = "using (f^a)' => a * f^(a-1)";
-                        Expression::Multiplication(vec![
-                        *exp.clone(),
-                        Expression::Exponentiation(
-                            Box::new(*base.clone()), 
-                            Box::new(Expression::Subtraction(
-                                exp.clone(),
-                                Box::new(Expression::integer(1)))
-                            ))]) }
-                    ,
+                        let mut after = Expression::Multiplication(vec![
+                            *exp.clone(),
+                            Expression::exponentiation(
+                               *base.clone(), 
+                               Expression::subtraction(
+                                    *exp.clone(),
+                                   Expression::integer(1))
+                                )]);
+                        if let Some(explanation) = explanation {
+                            after = Expression::derivative(after.clone(), variable, 1);
+                            explanation.rule_applied("Derivative of exponentiation is given by\n(f^a)' => a * f^(a-1)'", &before, &after);
+                        }
+                        Ok(after)
+                    },
                     // a^f => e^(f*ln(a)) => (f * ln(a))' * e^(f*ln(a)) => f' * ln(a) * a^f
                     (false, true) => {
-                        if let Expression::Constant(Constant::E) = **base {   
-                        rule = "using (e^f)' => e^f * f'";                         
-                            Expression::Multiplication(vec![
-                        self.clone(),
-                        Expression::Derivative(Box::new(*exp.clone()), variable.to_string(), 1),
-                    ])
-                     } else {
-                        rule = "using (a^f)' => e^(f*ln(a)) * f' * ln(a)";
-                        Expression::Multiplication(vec![
-                            self.clone(),
-                            Expression::Function(Function::Ln, vec![*base.clone()]),
-                            Expression::Derivative(Box::new(*exp.clone()), variable.to_string(), 1),
-                        ])
-                         
-                    }},
+                        if let Expression::Constant(Constant::E) = **base { 
+                            if let Some(explanation) = explanation {
+                                let after = Expression::derivative(
+                                    Expression::Multiplication(vec![
+                                        Expression::Exponentiation(base.clone(), exp.clone()),
+                                        Expression::derivative(*exp.clone(), variable, 1),
+                                        ]), 
+                                        variable,
+                                        1
+                                    );
+                                explanation.rule_applied("Derivative of exponentiation is given by\n(e^f)' => e^f * f'", &before, &after);
+                            }  
+                            Ok(Expression::Multiplication(vec![
+                                Expression::Exponentiation(base.clone(), exp.clone()),
+                                Expression::derivative(*exp.clone(), variable, 1),
+                            ]))
+                        } else {
+                            if let Some(explanation) = explanation {
+                                let after = Expression::derivative(
+                                    Expression::Multiplication(vec![
+                                        Expression::Exponentiation(base.clone(), exp.clone()),
+                                        Expression::ln(*base.clone()),
+                                        Expression::Derivative(Box::new(*exp.clone()), variable.to_string(), 1),
+                                    ]), 
+                                        variable,
+                                        1
+                                    );
+                                explanation.rule_applied("Derivative of exponentiation is given by\n(a^f)' => e^(f*ln(a)) * f' * ln(a)", &before, &after);
+                            }
+                            Ok(Expression::Multiplication(vec![
+                                Expression::Exponentiation(base.clone(), exp.clone()),
+                                Expression::ln(*base.clone()),
+                                Expression::derivative(*exp.clone(), variable, 1),
+                            ]))
+                        }
+                    },
                     (false, false) => {
-                        rule = "using (c^d)' => 1";
-                        Expression::integer(1)},
+                        if let Some(explanation) = explanation {
+                            let after = Expression::integer(0);
+                            explanation.rule_applied("Derivative of a constant is zero", &before, &after);
+                        }
+                        Ok(Expression::integer(0))},
                 }
             }
             Expression::Function(func, args) => {
-                Self::differentiate_function(func, args, variable, explanation)?
+                Self::differentiate_function(func, args, variable, explanation)
             }
-            Expression::Equality(lhs, rhs) => {
-                rule = "using (f=g)' => f' = g'";
-                let lhs_diff = lhs.differentiate(variable, explanation)?;
-                let rhs_diff = rhs.differentiate(variable, explanation)?;
-                Expression::Equality(Box::new(lhs_diff), Box::new(rhs_diff)) 
+            Expression::Equality(_lhs, _rhs) => {
+                Err(SimplifyError::Unsupported)
             }
             Expression::Derivative(expr, variable, order) => {
-                rule = "using f'' => (f')' ";
+                if let Some(explanation) = explanation {
+                    let after = Expression::derivative(Expression::derivative(*expr.clone(), variable, *order), variable, *order);
+                    explanation.rule_applied("Derivative of a derivative is given by is f'' => (f')'", &before, &after);
+                }
                 let expr_diff = expr.differentiate(variable, explanation)?;
-                Expression::Derivative(Box::new(expr_diff), variable.to_string(), *order)
+                Ok(Expression::derivative(expr_diff, variable, *order))
                      
             }
             Expression::Complex(_lhs, _rhs) => {
-                // TODO not handle yet
-                self.clone()
-            }
-        };
+                // TODO
+                Err(SimplifyError::Unsupported)
 
-        // if let Some(explanation) = explanation {
-        //     if !rule.is_empty() {
-        //         explanation.push(rule.to_string());
-        //     }
-        // }
+            }
+        }?;
+
         result.simplify(explanation)
     }
 

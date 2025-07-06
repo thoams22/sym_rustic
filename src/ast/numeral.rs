@@ -21,7 +21,7 @@ impl Numeral {
     pub fn is_one(&self) -> bool {
         match self {
             Numeral::Integer(n) => *n == 1,
-            Numeral::Rational(n, d) => *n/ *d == 1,
+            Numeral::Rational(n, d) => *n == *d,
         }
     }
 }
@@ -35,7 +35,7 @@ impl Numeral {
             let gcd = utils::gcd(*n, *d);
             let result = if gcd == 1 {
                 Ok(Numeral::Rational(*n, *d))
-            } else if *d / gcd == 1 {
+            } else if *d == gcd {
                 let simplified = *n / gcd;
                 if let Some(explanation) = explanation {
                     let intermediary = Expression::division(
@@ -54,7 +54,7 @@ impl Numeral {
                     );
                 }
                 Ok(Numeral::Integer(simplified))
-            } else if *n / gcd == 0 {
+            } else if *n == 0 {
                 if let Some(explanation) = explanation {
                     explanation.rule_applied(
                         "Zero divided by something is Zero",
@@ -63,7 +63,7 @@ impl Numeral {
                     );
                 }
                 Ok(Numeral::Integer(0))
-            } else if *d / gcd == 0 {
+            } else if *d == 0 {
                 Err(SimplifyError::DivisionByZero)
             } else {
                 if let Some(explanation) = explanation {
@@ -150,7 +150,7 @@ impl std::fmt::Display for Numeral {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Numeral::Integer(n) => write!(f, "{}", n),
-            Numeral::Rational(n, d) => write!(f, "{} / {}", n, d),
+            Numeral::Rational(n, d) => write!(f, "{}/{}", n, d),
         }
     }
 }

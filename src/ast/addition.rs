@@ -1,7 +1,4 @@
-use crate::{
-    explanation::{FormattingObserver, SimplificationObserver},
-    utils::transform_multiplication,
-};
+use crate::{explanation::FormattingObserver, utils::transform_multiplication};
 
 use super::{Expression, SimplifyError, numeral};
 
@@ -59,19 +56,19 @@ impl Expression {
         }
 
         if sum != 0 {
-            if neg {
-                let after = Expression::negation(Expression::integer(sum));
-                if let Some(explanation) = explanation {
-                    explanation.rule_applied("Add numbers ", &before, &after);
+                if neg {
+                    let after = Expression::negation(Expression::integer(sum));
+                    if let Some(explanation) = explanation {
+                        explanation.rule_applied("Add numbers ", &before, &after);
+                    }
+                    result.push(after)
+                } else {
+                    let after = Expression::integer(sum);
+                    if let Some(explanation) = explanation {
+                        explanation.rule_applied("Add numbers ", &before, &after);
+                    }
+                    result.push(after)
                 }
-                result.push(after)
-            } else {
-                let after = Expression::integer(sum);
-                if let Some(explanation) = explanation {
-                    explanation.rule_applied("Add numbers ", &before, &after);
-                }
-                result.push(after)
-            }
         } else if result.is_empty() {
             if let Some(explanation) = explanation {
                 let after = Expression::Number(numeral::Numeral::Integer(0));
@@ -85,7 +82,7 @@ impl Expression {
         while i < result.len() {
             let mut j: usize = i + 1;
             while j < result.len() {
-                let before = Expression::Multiplication(result.clone());
+                let before = Expression::Addition(result.clone());
                 match (&result[i], &result[j]) {
                     // a + b => c
                     (Expression::Number(a), Expression::Number(b)) => {
@@ -266,9 +263,9 @@ impl Expression {
                     }
                     // a + bi + c + di => (a + c) + (b + d)i
                     (Expression::Complex(a, b), Expression::Complex(c, d)) => {
-                        let mut after = Expression::Complex(
-                            Box::new(Expression::Addition(vec![*a.clone(), *c.clone()])),
-                            Box::new(Expression::Addition(vec![*b.clone(), *d.clone()])),
+                        let mut after = Expression::complex(
+                            Expression::Addition(vec![*a.clone(), *c.clone()]),
+                            Expression::Addition(vec![*b.clone(), *d.clone()]),
                         );
                         if let Some(explanation) = explanation {
                             explanation.rule_applied("Add complex expression", &before, &after);
@@ -278,19 +275,29 @@ impl Expression {
                     }
                     // a + c + di => (a + c) + di
                     (a, Expression::Complex(c, d)) | (Expression::Complex(c, d), a) => {
-                        let mut after = Expression::Complex(
-                            Box::new(Expression::Addition(vec![a.clone(), *c.clone()])),
-                            d.clone(),
-                        );
-                        if let Some(explanation) = explanation {
-                            explanation.rule_applied(
-                                "Add with a complex expression",
-                                &before,
-                                &after,
-                            );
-                        }
+                        let mut after = if c.is_equal(&Expression::integer(0)) {
+                            Expression::complex(
+                                a.clone(),
+                                *d.clone(),
+                            )
+                        } else {
+                            Expression::complex(
+                                Expression::Addition(vec![a.clone(), *c.clone()]),
+                                *d.clone(),
+                            )
+                        };
+                        // if let Some(explanation) = explanation {
+                        //     explanation.rule_applied(
+                        //         "Add with a complex expression",
+                        //         &before,
+                        //         &after,
+                        //     );
+                        // }
                         result[i] = after.simplify(explanation)?;
                         result.swap_remove(j);
+                        if j >= result.len() && j > i + 1 {
+                            j -= 1;
+                        }
                     }
                     // a/b + c/d => (ad + bc)/(bd)
                     (Expression::Division(a, b), Expression::Division(c, d)) => {
@@ -319,7 +326,9 @@ impl Expression {
                         result[i] = after.simplify(explanation)?;
                         result.swap_remove(j);
                     }
-                    _ => j += 1,
+                    _ => {
+                        j += 1
+                    },
                 }
             }
             i += 1;
@@ -340,9 +349,9 @@ impl Expression {
         })
     }
 
-    /// Transform a `&[Expression]` representing an `Expression::Multiplication` and an Expression into a `Option<tuple>` representing 
+    /// Transform a `&[Expression]` representing an `Expression::Multiplication` and an Expression into a `Option<tuple>` representing
     /// the Expression in common, if each one is negative and the coefficient between them
-    /// 
+    ///
     /// (a_negative, terms_negative, common_expr, coeff)
     fn reduce_add_mult<'b>(
         terms: &[Expression],

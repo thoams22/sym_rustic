@@ -1,6 +1,6 @@
 use sym_rustic::{
     ast::{Expression, SimplifyError},
-    explanation::{FormattingObserver, SimplificationObserver},
+    explanation::FormattingObserver,
     lexer::{Lexer, Token},
     parser::Parser,
 };
@@ -484,15 +484,15 @@ mod tests_multiplication {
     }
 
     #[test]
-    fn test_multiplication_28() {
+    fn test_multiplication_division() {
         let expr = simplify(parse(lex("4 * 1/2")), &mut None).unwrap();
 
         assert!(expr.is_equal(&Expression::integer(2)));
     }
 
     #[test]
-    fn test_multiplication_29() {
-        let expr = simplify(parse(lex("4/3 * 1/2")), &mut None).unwrap();
+    fn test_multiplication_division_2() {
+        let expr = simplify(parse(lex("(4/3) * (1/2)")), &mut None).unwrap();
 
         assert!(expr.is_equal(&Expression::rational(2, 3)));
     }
@@ -792,31 +792,31 @@ mod tests_derivatives {
 
     #[test]
     fn test_derivative_constant() {
-        let expr = simplify(parse(lex("d/d x(5)")), &mut None).unwrap();
+        let expr = simplify(parse(lex("d/dx 5")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::integer(0)));
     }
 
     #[test]
     fn test_derivative_variable() {
-        let expr = simplify(parse(lex("d/d x(x)")), &mut None).unwrap();
+        let expr = simplify(parse(lex("d/dx x")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::integer(1)));
     }
 
     #[test]
     fn test_derivative_different_variable() {
-        let expr = simplify(parse(lex("d/d x(y)")), &mut None).unwrap();
+        let expr = simplify(parse(lex("d/dx (y)")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::integer(0)));
     }
 
     #[test]
     fn test_derivative_sum() {
-        let expr = simplify(parse(lex("d/d x(a + b)")), &mut None).unwrap();
+        let expr = simplify(parse(lex("d/dx (a + b)")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::integer(0)));
     }
 
     #[test]
     fn test_derivative_sum_2() {
-        let expr = simplify(parse(lex("d/d x(x^2 + sin(x))")), &mut None).unwrap();
+        let expr = simplify(parse(lex("d/dx (x^2 + sin(x))")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::Addition(vec![
             Expression::Multiplication(vec![
                 Expression::integer(2),
@@ -828,19 +828,19 @@ mod tests_derivatives {
 
     #[test]
     fn test_derivative_product() {
-        let expr = simplify(parse(lex("d/d x(a * b)")), &mut None).unwrap();
+        let expr = simplify(parse(lex("d/dx (a * b)")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::integer(0)));
     }
 
     // #[test]
     // fn test_derivative_product_2() {
-    //     let expr = simplify(parse(lex("d/d x(x^2 * sin(x)")), &mut None).unwrap();
+    //     let expr = simplify(parse(lex("d/dx (x^2 * sin(x)")), &mut None).unwrap();
     //     assert!(expr.is_equal(&Expression::integer(0)));
     // }
 
     // #[test]
     // fn test_derivative_quotient() {
-    //     let expr = simplify(parse(lex("d/dx(a / b)")), &mut None).unwrap();
+    //     let expr = simplify(parse(lex("d/dx (a / b)")), &mut None).unwrap();
     //     assert!(expr.is_equal(&Expression::Division(
     //         Expression::Subtraction(vec![
     //             Expression::Multiplication(vec![
@@ -858,7 +858,7 @@ mod tests_derivatives {
 
     #[test]
     fn test_derivative_power() {
-        let expr = simplify(parse(lex("d/d x(x^3)")), &mut None).unwrap();
+        let expr = simplify(parse(lex("d/dx (x^3)")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::Multiplication(vec![
             Expression::integer(3),
             Expression::exponentiation(Expression::variable("x"), Expression::integer(2))
@@ -867,14 +867,14 @@ mod tests_derivatives {
 
     #[test]
     fn test_derivative_function() {
-        let expr = simplify(parse(lex("d/d x(sin(x))")), &mut None).unwrap();
+        let expr = simplify(parse(lex("d/dx (sin(x))")), &mut None).unwrap();
         assert!(expr.is_equal(&
             Expression::cos(Expression::variable("x"))        ));
     }
 
     #[test]
     fn test_derivative_exponential() {
-        let expr = simplify(parse(lex("d/d x(e^x)")), &mut None).unwrap();
+        let expr = simplify(parse(lex("d/dx (e^x)")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::exponentiation(
             Expression::e(),
             Expression::variable("x")
@@ -883,7 +883,7 @@ mod tests_derivatives {
 
     #[test]
     fn test_derivative_logarithmic() {
-        let expr = simplify(parse(lex("d/d x(ln(x))")), &mut None).unwrap();
+        let expr = simplify(parse(lex("d/dx (ln(x))")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::exponentiation(
             Expression::variable("x"),
             Expression::negation(Expression::integer(1)),
@@ -892,13 +892,13 @@ mod tests_derivatives {
 
     #[test]
     fn test_higher_order_derivative() {
-        let expr = simplify(parse(lex("d^2/d x^2(x^2)")), &mut None).unwrap();
+        let expr = simplify(parse(lex("d^2/dx^2 (x^2)")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::integer(2)));
     }
 
     #[test]
     fn test_derivative_zero() {
-        let expr = simplify(parse(lex("d/d x(0)")), &mut None).unwrap();
+        let expr = simplify(parse(lex("d/dx (0)")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::integer(0)));
     }
 }

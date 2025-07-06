@@ -12,6 +12,6 @@ impl ExplanationFormatter for TextFormatter {
     }
     
     fn format_step_completed(&self, result: &Expression) -> String {
-        format!("Final result: {}", result)
+        format!("After simplifying result: {}", result)
     }
 }

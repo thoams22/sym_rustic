@@ -158,30 +158,7 @@ impl<'a> Parser<'a> {
                     Ok(Expression::Negation(Box::new(expr)))
                 }
             }
-            Some(Token::Number(value)) => {
-                let val = value.clone();
-                self.advance();
-                match val.parse::<u64>() {
-                    Ok(number) => {
-                        while let Some(Token::WhiteSpace) = self.current_token() {
-                            self.advance();
-                        }
-                        // Handle implicit multiplication
-                        if matches!(
-                            self.current_token(),
-                            Some(&Token::LeftParen) | Some(&Token::Literal(_))
-                        ) {
-                            Ok(Expression::Multiplication(vec![
-                                Expression::Number(numeral::Numeral::Integer(number)),
-                                self.parse_binary(None, 3)?,
-                            ]))
-                        } else {
-                            Ok(Expression::Number(numeral::Numeral::Integer(number)))
-                        }
-                    }
-                    Err(_) => Err(ParseError::InvalidNumberFormat(self.position)),
-                }
-            }
+            Some(Token::Number(value)) => self.parse_number(value.clone()),
             Some(Token::Literal(value)) => {
                 let expr = self.parse_literal(value.clone())?;
                 while let Some(Token::WhiteSpace) = self.current_token() {
@@ -229,6 +206,29 @@ impl<'a> Parser<'a> {
                     ))
                 }
             }
+            Some(Token::Dot) => {
+                // Handle decimal number with no leading zero like .55
+                self.advance();
+                match self.current_token() {
+                    Some(Token::Number(value)) => match value.parse::<u64>() {
+                        Ok(denominator) => {
+                            self.advance();
+                            Ok(Expression::rational(
+                                denominator,
+                                10_u64.pow(denominator.to_string().len() as u32),
+                            ))
+                        }
+                        Err(_) => Err(ParseError::InvalidNumberFormat(self.position)),
+                    },
+                    Some(token) => {
+                        Err(ParseError::UnexpectedToken(
+                            format!("{}", token),
+                            self.position,
+                        ))
+                    }
+                    None => Err(ParseError::UnexpectedEndOfInput(self.position)),
+                }
+            }
             Some(token) => Err(ParseError::UnexpectedToken(
                 format!("{}", token),
                 self.position,
@@ -241,6 +241,54 @@ impl<'a> Parser<'a> {
         }
 
         parsed
+    }
+
+    fn parse_number(&mut self, variable: String) -> Result<Expression, ParseError> {
+        self.advance();
+        match variable.parse::<u64>() {
+            Ok(numerator) => {
+                // Handle decimal point
+                let number = if let Some(Token::Dot) = self.current_token() {
+                    self.advance();
+                    match self.current_token() {
+                        Some(Token::Number(value)) => match value.parse::<u64>() {
+                            Ok(denominator) => {
+                                self.advance();
+                                let power = 10_u64.pow(denominator.to_string().len() as u32);
+                                Expression::rational(numerator * power + denominator, power)
+                            }
+                            Err(_) => return Err(ParseError::InvalidNumberFormat(self.position)),
+                        },
+                        Some(token) => {
+                            return Err(ParseError::UnexpectedToken(
+                                format!("{}", token),
+                                self.position,
+                            ));
+                        }
+                        None => return Err(ParseError::UnexpectedEndOfInput(self.position)),
+                    }
+                } else {
+                    Expression::integer(numerator)
+                };
+
+                while let Some(Token::WhiteSpace) = self.current_token() {
+                    self.advance();
+                }
+                // Handle implicit multiplication
+                if matches!(
+                    self.current_token(),
+                    Some(&Token::LeftParen) | Some(&Token::Literal(_))
+                ) {
+                    Ok(Expression::Multiplication(vec![
+                        number,
+                        self.parse_binary(None, 3)?,
+                    ]))
+                } else {
+                    Ok(number)
+                }
+            }
+            Err(_) => Err(ParseError::InvalidNumberFormat(self.position)),
+        }
     }
 
     fn parse_literal(&mut self, variable: String) -> Result<Expression, ParseError> {
@@ -258,7 +306,7 @@ impl<'a> Parser<'a> {
                     Err(_) => {
                         self.position = position;
                         Ok(Expression::Variable("d".to_string()))
-                    },
+                    }
                 }
             }
             Some(Token::LeftParen) => self.parse_functions(variable),
@@ -330,27 +378,29 @@ impl<'a> Parser<'a> {
 
         self.pass_whitespace();
 
-        let var;
-        if let Some(Token::Literal(literal)) = self.current_token().cloned() {
+        let var = if let Some(Token::Literal(literal)) = self.current_token().cloned() {
             self.advance();
-            if literal == "d" {
-                // d/d
-                self.pass_whitespace();
-                if let Some(Token::Literal(lit)) = self.current_token().cloned() {
+            if let Some(var) = literal.clone().strip_prefix("d") {
+                // d/dvar
+                // self.pass_whitespace();
+                // if let Some(Token::Literal(lit)) = self.current_token().cloned() {
+                //     self.advance();
+                //     var = self.parse_variable(lit)?;
+
+                let variable = self.parse_variable(var.to_owned())?;
+                // d/dvar
+                if let Some(Token::Caret) = self.current_token() {
                     self.advance();
-                    var = self.parse_variable(lit)?;
-                    // d/d var
-                    if let Some(Token::Caret) = self.current_token() {
-                        self.advance();
-                        // d/d var^
+                        // d/dvar^
                         if let Some(Token::Number(num_str)) = self.current_token().cloned() {
                             self.advance();
-                            // d/d var^num
+                            // d/dvar^num
                             match (num_str.parse::<u32>(), order) {
                                 (Ok(num), Some(ord)) => {
                                     if num != ord {
                                         return Err(ParseError::DerivativeFailed);
                                     }
+                                    variable
                                 }
                                 (Ok(_), None) => {
                                     return Err(ParseError::DerivativeFailed);
@@ -362,41 +412,42 @@ impl<'a> Parser<'a> {
                         }
                     } else if order.is_some() {
                         return Err(ParseError::DerivativeFailed);
+                    } else {
+                        variable
                     }
-                } else {
-                    return Err(ParseError::DerivativeFailed);
-                }
+                // } else {
+                //     return Err(ParseError::DerivativeFailed);
+                // }
             } else {
                 return Err(ParseError::DerivativeFailed);
             }
         } else {
-            return Err(ParseError::DerivativeFailed)
-        }
+            return Err(ParseError::DerivativeFailed);
+        }; 
 
         self.pass_whitespace();
 
-
-        let expression = if let Some(Token::LeftParen) = self.current_token() {
-            self.advance();
+        // let expression = if let Some(Token::LeftParen) = self.current_token() {
+        //     self.advance();
             let expr = self.parse_binary(None, 0)?;
-            if let Some(Token::RightParen) = self.current_token() {
-                self.advance();
-                while let Some(Token::WhiteSpace) = self.current_token() {
-                    self.advance();
-                }
-                Ok(expr)
-            } else {
-                Err(ParseError::UnexpectedToken(
-                    format!("{}", self.current_token().unwrap()),
-                    self.position,
-                ))
-            }
-        } else {
-            return Err(ParseError::DerivativeFailed);
-        }?;
+        //     if let Some(Token::RightParen) = self.current_token() {
+        //         self.advance();
+        //         while let Some(Token::WhiteSpace) = self.current_token() {
+        //             self.advance();
+        //         }
+        //         Ok(expr)
+        //     } else {
+        //         Err(ParseError::UnexpectedToken(
+        //             format!("{}", self.current_token().unwrap()),
+        //             self.position,
+        //         ))
+        //     }
+        // } else {
+        //     return Err(ParseError::DerivativeFailed);
+        // }?;
 
         Ok(Expression::Derivative(
-            Box::new(expression),
+            Box::new(expr),
             var.to_string(),
             order.unwrap_or(1),
         ))
