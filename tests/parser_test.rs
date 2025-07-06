@@ -20,7 +20,10 @@ mod tests_bad_lex {
         let tokens: Vec<Token> = lex("é");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap_err();
-        assert_eq!(expr, ParseError::UnexpectedToken("Unsupported: é".to_string(), 0));
+        assert_eq!(
+            expr,
+            ParseError::UnexpectedToken("Unsupported: é".to_string(), 0)
+        );
     }
 }
 
@@ -29,10 +32,10 @@ mod tests_number {
     use crate::lex;
     use sym_rustic::ast::Expression;
     use sym_rustic::lexer::Token;
-    use sym_rustic::parser::Parser;
+    use sym_rustic::parser::{ParseError, Parser};
 
     #[test]
-    fn test_number_1() {
+    fn test_number_simple() {
         let tokens: Vec<Token> = lex("42");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -40,7 +43,7 @@ mod tests_number {
     }
 
     #[test]
-    fn test_number_2() {
+    fn test_number_plus() {
         let tokens: Vec<Token> = lex("+ 42");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -48,7 +51,7 @@ mod tests_number {
     }
 
     #[test]
-    fn test_number_3() {
+    fn test_number_minus() {
         let tokens: Vec<Token> = lex("- 42");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -56,6 +59,49 @@ mod tests_number {
             expr,
             Expression::Negation(Box::new(Expression::integer(42)))
         );
+    }
+
+    #[test]
+    fn test_number_decimal() {
+        let tokens: Vec<Token> = lex("43.55");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(expr, Expression::rational(4355, 100));
+    }
+
+    #[test]
+    fn test_number_decimal_negative() {
+        let tokens: Vec<Token> = lex("-43.55");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Negation(Box::new(Expression::rational(4355, 100)))
+        );
+    }
+
+    #[test]
+    fn test_number_decimal_no_decimal() {
+        let tokens: Vec<Token> = lex("43.");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap_err();
+        assert_eq!(expr, ParseError::UnexpectedEndOfInput(2));
+    }
+
+    #[test]
+    fn test_number_decimal_no_leading() {
+        let tokens: Vec<Token> = lex(".55");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(expr, Expression::rational(55, 100));
+    }
+
+    #[test]
+    fn test_number_decimal_leading_zero() {
+        let tokens: Vec<Token> = lex("0.55");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(expr, Expression::rational(55, 100));
     }
 }
 
@@ -127,7 +173,7 @@ mod tests_multiplication {
     use sym_rustic::parser::Parser;
 
     #[test]
-    fn test_multiplication_1() {
+    fn test_multiplication_simple() {
         let tokens: Vec<Token> = lex("42 * 42");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -138,7 +184,24 @@ mod tests_multiplication {
     }
 
     #[test]
-    fn test_multiplication_2() {
+    fn test_multiplication_simple_2() {
+        let tokens: Vec<Token> = lex("a * b * c");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Multiplication(vec![
+                Expression::Multiplication(vec![
+                    Expression::variable("a"),
+                    Expression::variable("b"),
+                ]),
+                Expression::variable("c")
+            ])
+        );
+    }
+
+    #[test]
+    fn test_multiplication_parenthesis() {
         let tokens: Vec<Token> = lex("38 * (40 * 42)");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -152,7 +215,7 @@ mod tests_multiplication {
     }
 
     #[test]
-    fn test_multiplication_3() {
+    fn test_multiplication_parenthesis_negation() {
         let tokens: Vec<Token> = lex("(40 * 42) * -38");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -166,7 +229,7 @@ mod tests_multiplication {
     }
 
     #[test]
-    fn test_multiplication_4() {
+    fn test_multiplication_parenthesis_implicit_multiplication_number() {
         let tokens: Vec<Token> = lex("(40 * 42) 38");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -180,21 +243,7 @@ mod tests_multiplication {
     }
 
     #[test]
-    fn test_multiplication_5() {
-        let tokens: Vec<Token> = lex("a (40 * 42)");
-        let mut parser = Parser::new(&tokens);
-        let expr = parser.parse_expression().unwrap();
-        assert_eq!(
-            expr,
-            Expression::Multiplication(vec![
-                Expression::Variable("a".to_string()),
-                Expression::Multiplication(vec![Expression::integer(40), Expression::integer(42)])
-            ])
-        );
-    }
-
-    #[test]
-    fn test_multiplication_6() {
+    fn test_multiplication_parenthesis_implicit_multiplication_number_2() {
         let tokens: Vec<Token> = lex("8 (40 * 42)");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -208,7 +257,21 @@ mod tests_multiplication {
     }
 
     #[test]
-    fn test_multiplication_7() {
+    fn test_multiplication_parenthesis_implicit_multiplication_variable() {
+        let tokens: Vec<Token> = lex("a (40 * 42)");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Multiplication(vec![
+                Expression::Variable("a".to_string()),
+                Expression::Multiplication(vec![Expression::integer(40), Expression::integer(42)])
+            ])
+        );
+    }
+
+    #[test]
+    fn test_multiplication_implicit_multiplication_parenthesis() {
         let tokens: Vec<Token> = lex(" (a + b)(a - b)");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -228,7 +291,7 @@ mod tests_multiplication {
     }
 
     #[test]
-    fn test_multiplication_8() {
+    fn test_multiplication_division() {
         let tokens: Vec<Token> = lex(" a * b / c * a");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -248,7 +311,27 @@ mod tests_multiplication {
     }
 
     #[test]
-    fn test_multiplication_9() {
+    fn test_multiplication_division_2() {
+        let tokens: Vec<Token> = lex("a / b * c / a");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::division(
+                Expression::Multiplication(vec![
+                    Expression::division(
+                        Expression::Variable("a".to_string()),
+                        Expression::Variable("b".to_string()),
+                    ),
+                    Expression::Variable("c".to_string())
+                ]),
+                Expression::Variable("a".to_string())
+            )
+        );
+    }
+
+    #[test]
+    fn test_multiplication_implcit_multiplication_variable() {
         let tokens: Vec<Token> = lex("a b c");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -265,7 +348,7 @@ mod tests_multiplication {
     }
 
     #[test]
-    fn test_multiplication_10() {
+    fn test_multiplication_implcit_multiplication_variable_2() {
         let tokens: Vec<Token> = lex("a (b c)");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -282,7 +365,7 @@ mod tests_multiplication {
     }
 
     #[test]
-    fn test_multiplication_11() {
+    fn test_multiplication_implcit_multiplication() {
         let tokens: Vec<Token> = lex("3 a (b c)");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
@@ -301,6 +384,158 @@ mod tests_multiplication {
         );
     }
 }
+
+#[cfg(test)]
+mod tests_division {
+    use crate::lex;
+    use sym_rustic::ast::Expression;
+    use sym_rustic::lexer::Token;
+    use sym_rustic::parser::{ParseError, Parser};
+
+    #[test]
+    fn test_division_simple() {
+        let tokens: Vec<Token> = lex("42 / 2");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Division(
+                Box::new(Expression::integer(42)),
+                Box::new(Expression::integer(2))
+            )
+        );
+    }
+
+    #[test]
+    fn test_division_no_spaces() {
+        let tokens: Vec<Token> = lex("42/2");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Division(
+                Box::new(Expression::integer(42)),
+                Box::new(Expression::integer(2))
+            )
+        );
+    }
+
+    #[test]
+    fn test_division_chained() {
+        let tokens: Vec<Token> = lex("a / b / c");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Division(
+                Box::new(Expression::Division(
+                    Box::new(Expression::Variable("a".to_string())),
+                    Box::new(Expression::Variable("b".to_string()))
+                )),
+                Box::new(Expression::Variable("c".to_string()))
+            )
+        );
+    }
+
+    #[test]
+    fn test_division_chained_2() {
+        let tokens: Vec<Token> = lex("a / b / c / d");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Division(
+                Box::new(Expression::Division(
+                    Box::new(Expression::Division(
+                        Box::new(Expression::Variable("a".to_string())),
+                        Box::new(Expression::Variable("b".to_string()))
+                    )),
+                    Box::new(Expression::Variable("c".to_string()))
+                )),
+                Box::new(Expression::Variable("d".to_string()))
+            )
+        );
+    }
+
+    #[test]
+    fn test_division_parentheses() {
+        let tokens: Vec<Token> = lex("a / (b / c)");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Division(
+                Box::new(Expression::Variable("a".to_string())),
+                Box::new(Expression::Division(
+                    Box::new(Expression::Variable("b".to_string())),
+                    Box::new(Expression::Variable("c".to_string()))
+                ))
+            )
+        );
+    }
+
+    #[test]
+    fn test_division_negative_numerator() {
+        let tokens: Vec<Token> = lex("-42 / 2");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Division(
+                Box::new(Expression::Negation(Box::new(Expression::integer(42)))),
+                Box::new(Expression::integer(2))
+            )
+        );
+    }
+
+    #[test]
+    fn test_division_negative_denominator() {
+        let tokens: Vec<Token> = lex("42 / -2");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Division(
+                Box::new(Expression::integer(42)),
+                Box::new(Expression::Negation(Box::new(Expression::integer(2))))
+            )
+        );
+    }
+
+    #[test]
+    fn test_division_multiplication_denominator() {
+        let tokens: Vec<Token> = lex("1 / 3 * 4");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Multiplication(vec![
+                Expression::Division(
+                    Box::new(Expression::integer(1)),
+                    Box::new(Expression::integer(3)),
+                ),
+                Expression::integer(4),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_division_missing_denominator() {
+        let tokens: Vec<Token> = lex("42 /");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap_err();
+        assert_eq!(ParseError::UnexpectedEndOfInput(3), expr);
+    }
+
+    #[test]
+    fn test_division_leading_division_operator() {
+        let tokens: Vec<Token> = lex("/42");
+        let mut parser = Parser::new(&tokens);
+        let expr = parser.parse_expression().unwrap_err();
+        assert_eq!(ParseError::UnexpectedToken("/".to_string(), 0), expr);
+    }
+}
+
 #[cfg(test)]
 mod tests_exponentiations {
     use crate::lex;
@@ -915,7 +1150,7 @@ mod tests_derivative {
 
     #[test]
     fn test_derivative_1() {
-        let tokens = lex("d/d x (x^2)");
+        let tokens = lex("d/dx (x^2)");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
@@ -931,7 +1166,7 @@ mod tests_derivative {
 
     #[test]
     fn test_derivative_2() {
-        let tokens = lex("d^1/d x^1 (x^2)");
+        let tokens = lex("d^1/dx^1 (x^2)");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
@@ -947,7 +1182,7 @@ mod tests_derivative {
 
     #[test]
     fn test_derivative_3() {
-        let tokens = lex("d^2/d x^2 (x^2)");
+        let tokens = lex("d^2/dx^2 (x^2)");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
@@ -963,7 +1198,7 @@ mod tests_derivative {
 
     #[test]
     fn test_derivative_4() {
-        let tokens = lex("d^4/d x_1^4 (x^2 + 2)");
+        let tokens = lex("d^4/dx_1^4 (x^2 + 2)");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
@@ -1115,60 +1350,34 @@ mod tests_derivative {
 
     #[test]
     fn test_derivative_13() {
-        let tokens = lex("d^2/d x^2 + 3");
+        let tokens = lex("d^2/dx^2 + 3");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        
-        assert!(expr.is_equal(&Expression::Addition(vec![
-            Expression::Division(
-                Box::new(Expression::Exponentiation(
-                    Box::new(Expression::Variable("d".to_string())),
-                    Box::new(Expression::integer(2))
-                )),
-                Box::new(Expression::Multiplication(vec![
-                    Expression::Variable("d".to_string()),
-                    Expression::Exponentiation(
-                        Box::new(Expression::Variable("x".to_string())),
-                        Box::new(Expression::integer(2))
-                    )
-                ]))
-            ),
-            Expression::integer(3)
-        ]),))
+        assert!(expr.is_equal(&Expression::derivative(Expression::integer(3), "x", 2)))
     }
 
     #[test]
     fn test_derivative_14() {
-        let tokens = lex("d^2/d x^2 (3)");
+        let tokens = lex("d^2/dx^2 (3)");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        
         assert!(expr.is_equal(&Expression::Derivative(
-            Box::new(Expression::integer(3)), "x".to_string(), 2)))
-        }
-
-    #[test]
-    fn test_derivative_15() {
-        let tokens = lex("d^2/d x^2 (*)");
-        let mut parser = Parser::new(&tokens);
-        let expr = parser.parse_expression().unwrap_err();
-        
-        println!("{:?}", expr);
-
-        assert_eq!(
-            expr,
-            ParseError::UnexpectedToken("*".to_string(), 11)
-        )
+            Box::new(Expression::integer(3)),
+            "x".to_string(),
+            2
+        )))
     }
 
     #[test]
-    fn test_derivative_16() {
-        let tokens = lex("d^2/d x^2 4");
+    fn test_derivative_15() {
+        let tokens = lex("d^2/dx^2 (*)");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap_err();
 
-        assert_eq!(expr, ParseError::UnexpectedToken("Expected end of input but found 4".to_string(), 10))
+        println!("{:?}", expr);
+
+        assert_eq!(expr, ParseError::UnexpectedToken("*".to_string(), 9))
     }
 }

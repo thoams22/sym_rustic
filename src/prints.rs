@@ -4,6 +4,7 @@ use crate::ast::{Expression, constant, numeral::Numeral};
 
 // Print functions
 impl Expression {
+
     /// Print the expression in a multiline format
     ///
     /// # Exemple
@@ -25,7 +26,11 @@ impl Expression {
     ///     * 2
     ///   + 5
     ///
-    pub fn print_tree(&self, indent: usize) -> String {
+    pub fn print_tree(&self, indent: usize) {
+        print!("{}", self.calculate_tree(indent))
+    }
+    
+    pub fn calculate_tree(&self, indent: usize) -> String  {
         let next_indent = indent + 2;
         let next_indent_str = " ".repeat(next_indent);
 
@@ -34,7 +39,7 @@ impl Expression {
                 if terms.is_empty() {
                     "0".to_string()
                 } else if terms.len() == 1 {
-                    terms[0].print_tree(indent)
+                    terms[0].calculate_tree(indent)
                 } else {
                     let mut result = String::from("Addition:\n");
                     for (i, term) in terms.iter().enumerate() {
@@ -42,7 +47,7 @@ impl Expression {
                             "{}{}{}",
                             next_indent_str,
                             "+ ",
-                            term.print_tree(next_indent)
+                            term.calculate_tree(next_indent)
                         ));
                         if i < terms.len() - 1 {
                             result.push('\n');
@@ -55,7 +60,7 @@ impl Expression {
                 if terms.is_empty() {
                     "1".to_string()
                 } else if terms.len() == 1 {
-                    terms[0].print_tree(indent)
+                    terms[0].calculate_tree(indent)
                 } else {
                     let mut result = String::from("Multiplication:\n");
                     for (i, term) in terms.iter().enumerate() {
@@ -63,7 +68,7 @@ impl Expression {
                             "{}{}{}",
                             next_indent_str,
                             "* ",
-                            term.print_tree(next_indent)
+                            term.calculate_tree(next_indent)
                         ));
                         if i < terms.len() - 1 {
                             result.push('\n');
@@ -76,45 +81,45 @@ impl Expression {
                 format!(
                     "Subtraction:\n{}{}\n{}- {}",
                     next_indent_str,
-                    lhs.print_tree(next_indent),
+                    lhs.calculate_tree(next_indent),
                     next_indent_str,
-                    rhs.print_tree(next_indent)
+                    rhs.calculate_tree(next_indent)
                 )
             }
             Expression::Division(lhs, rhs) => {
                 format!(
                     "Division:\n{}{}\n{}/ {}",
                     next_indent_str,
-                    lhs.print_tree(next_indent),
+                    lhs.calculate_tree(next_indent),
                     next_indent_str,
-                    rhs.print_tree(next_indent)
+                    rhs.calculate_tree(next_indent)
                 )
             }
             Expression::Exponentiation(lhs, rhs) => {
                 format!(
                     "Exponentiation:\n{}{}\n{}^ {}",
                     next_indent_str,
-                    lhs.print_tree(next_indent),
+                    lhs.calculate_tree(next_indent),
                     next_indent_str,
-                    rhs.print_tree(next_indent)
+                    rhs.calculate_tree(next_indent)
                 )
             }
             Expression::Equality(lhs, rhs) => {
                 format!(
                     "Equality:\n{}{}\n{}= {}",
                     next_indent_str,
-                    lhs.print_tree(next_indent),
+                    lhs.calculate_tree(next_indent),
                     next_indent_str,
-                    rhs.print_tree(next_indent)
+                    rhs.calculate_tree(next_indent)
                 )
             }
             Expression::Complex(real, imag) => {
                 format!(
                     "Complex:\n{}{}\n{}i {}",
                     next_indent_str,
-                    real.print_tree(next_indent),
+                    real.calculate_tree(next_indent),
                     next_indent_str,
-                    imag.print_tree(next_indent)
+                    imag.calculate_tree(next_indent)
                 )
             }
             Expression::Variable(name) => name.to_string(),
@@ -123,13 +128,13 @@ impl Expression {
                 format!(
                     "Negation:\n{}- {}",
                     next_indent_str,
-                    expr.print_tree(indent)
+                    expr.calculate_tree(indent)
                 )
             }
             Expression::Function(func, args) => {
                 let mut result = format!("{}(", func);
                 for (i, arg) in args.iter().enumerate() {
-                    result.push_str(&arg.print_tree(0));
+                    result.push_str(&arg.calculate_tree(0));
                     if i < args.len() - 1 {
                         result.push_str(", ");
                     }
@@ -149,7 +154,7 @@ impl Expression {
                         "".to_owned()
                     },
                     next_indent_str,
-                    expr.print_tree(next_indent),
+                    expr.calculate_tree(next_indent),
                     next_indent_str,
                     variable,
                 )
@@ -174,15 +179,13 @@ impl Expression {
     /// let result = " 2    \nx  + 5";
     /// ```
     pub fn print_console(&self) {
-        println!("{}\n", self.print_aa())
+        println!("{}\n", self.get_processed())
     }
 
-    pub fn print_aa(&self) -> String {
+    pub fn get_processed(&self) -> String {
         let mut memoization: HashMap<Expression, (usize, usize)> = HashMap::new();
         let mut position: Vec<(String, (usize, usize))> = Vec::new();
-        self.calculate_aa(&mut memoization, &mut position, (0, 0));
-
-        // println!("{:?}", position);
+        self.calculate_positions(&mut memoization, &mut position, (0, 0));
 
         let length = self.get_length(&mut memoization);
         let height = self.get_height(&mut memoization);
@@ -239,7 +242,7 @@ impl Expression {
         }
     }
 
-    fn calculate_aa(
+    fn calculate_positions(
         &self,
         memoization: &mut HashMap<Expression, (usize, usize)>,
         position: &mut Vec<(String, (usize, usize))>,
@@ -252,7 +255,7 @@ impl Expression {
 
                 expressions.iter().enumerate().for_each(|(i, x)| {
                     let new_height = pos.0 + below_height - x.get_below_height(memoization);
-                    x.calculate_aa(memoization, position, (new_height, pos.1));
+                    x.calculate_positions(memoization, position, (new_height, pos.1));
                     pos.1 += x.get_length(memoization);
                     if i < expressions.len() - 1 {
                         position.push((" ".to_string(), (pos.0 + below_height, pos.1)));
@@ -270,7 +273,7 @@ impl Expression {
 
                 expressions.iter().enumerate().for_each(|(i, x)| {
                     let new_height = pos.0 + below_height - x.get_below_height(memoization);
-                    x.calculate_aa(memoization, position, (new_height, pos.1));
+                    x.calculate_positions(memoization, position, (new_height, pos.1));
                     pos.1 += x.get_length(memoization);
                     if i < expressions.len() - 1 {
                         position.push((" ".to_string(), (pos.0 + below_height, pos.1)));
@@ -284,7 +287,7 @@ impl Expression {
             }
             Expression::Subtraction(a, b) => {
                 let mut pos = prev_pos;
-                a.calculate_aa(memoization, position, pos);
+                a.calculate_positions(memoization, position, pos);
                 pos.1 += a.get_length(memoization);
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
@@ -292,7 +295,7 @@ impl Expression {
                 pos.1 += 1;
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
-                b.calculate_aa(memoization, position, pos);
+                b.calculate_positions(memoization, position, pos);
             }
             Expression::Division(n, d) => {
                 let length = self.get_length(memoization);
@@ -311,10 +314,10 @@ impl Expression {
 
                 if !top {
                     pos.1 += span;
-                    d.calculate_aa(memoization, position, pos);
+                    d.calculate_positions(memoization, position, pos);
                     pos.1 -= span;
                 } else {
-                    d.calculate_aa(memoization, position, pos);
+                    d.calculate_positions(memoization, position, pos);
                 }
 
                 pos.0 += bottom_height;
@@ -329,10 +332,10 @@ impl Expression {
 
                 if top {
                     pos.1 += span;
-                    n.calculate_aa(memoization, position, pos);
+                    n.calculate_positions(memoization, position, pos);
                     pos.1 -= span;
                 } else {
-                    n.calculate_aa(memoization, position, pos);
+                    n.calculate_positions(memoization, position, pos);
                 }
             }
             Expression::Exponentiation(b, e) => {
@@ -348,7 +351,7 @@ impl Expression {
                     Self::calculate_parenthesis(position, pos, true, b.get_height(memoization));
                     pos.1 += 1;
                 }
-                b.calculate_aa(memoization, position, pos);
+                b.calculate_positions(memoization, position, pos);
                 pos.1 += b.get_length(memoization);
                 if matches!(
                     **b,
@@ -362,11 +365,11 @@ impl Expression {
                     pos.1 += 1;
                 }
                 pos.0 += b.get_height(memoization);
-                e.calculate_aa(memoization, position, pos);
+                e.calculate_positions(memoization, position, pos);
             }
             Expression::Equality(a, b) => {
                 let mut pos = prev_pos;
-                a.calculate_aa(memoization, position, pos);
+                a.calculate_positions(memoization, position, pos);
                 pos.1 += a.get_length(memoization);
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
@@ -374,11 +377,11 @@ impl Expression {
                 pos.1 += 1;
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
-                b.calculate_aa(memoization, position, pos);
+                b.calculate_positions(memoization, position, pos);
             }
             Expression::Complex(a, b) => {
                 let mut pos = prev_pos;
-                a.calculate_aa(memoization, position, pos);
+                a.calculate_positions(memoization, position, pos);
                 pos.1 += a.get_length(memoization);
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
@@ -386,7 +389,7 @@ impl Expression {
                 pos.1 += 1;
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
-                b.calculate_aa(memoization, position, pos);
+                b.calculate_positions(memoization, position, pos);
                 pos.1 += b.get_length(memoization);
                 position.push(("i".to_string(), pos));
             }
@@ -406,7 +409,7 @@ impl Expression {
                 pos.1 += 1;
                 position.push((" ".to_string(), pos));
                 pos.1 += 1;
-                a.calculate_aa(memoization, position, pos);
+                a.calculate_positions(memoization, position, pos);
             }
             Expression::Function(function, expressions) => {
                 let mut pos = prev_pos;
@@ -419,7 +422,7 @@ impl Expression {
                 Self::calculate_parenthesis(position, pos, true, height);
                 pos.1 += 1;
                 expressions.iter().for_each(|x| {
-                    x.calculate_aa(memoization, position, pos);
+                    x.calculate_positions(memoization, position, pos);
                     pos.1 += x.get_length(memoization);
                 });
                 Self::calculate_parenthesis(position, pos, false, height);
@@ -433,7 +436,7 @@ impl Expression {
                 Box::new(Expression::integer(*num)),
                 Box::new(Expression::integer(*den)),
             )
-            .calculate_aa(memoization, position, prev_pos),
+            .calculate_positions(memoization, position, prev_pos),
             Expression::Derivative(expr, var, order) => {
                 let length = var.len()
                     + 2
@@ -509,7 +512,7 @@ impl Expression {
                 //      order
                 // d var
                 let height = new_height - expr.get_below_height(memoization);
-                expr.calculate_aa(memoization, position, (height, pos.1 + length + 1));
+                expr.calculate_positions(memoization, position, (height, pos.1 + length + 1));
             }
         }
     }
