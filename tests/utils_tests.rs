@@ -160,7 +160,7 @@ mod tests {
                 Expression::Variable("b".to_string()),
             ],
             4
-        ).simplify(&mut None).unwrap().print_tree(0));
+        ).simplify(&mut None).unwrap().calculate_tree(0));
 
         print!("{}", 
         Expression::Addition(vec![
@@ -199,7 +199,7 @@ mod tests {
                 ),
                 Expression::Variable("a".to_string()),
             ]),
-        ]).print_tree(0));
+        ]).calculate_tree(0));
 
         // multinomial_expansion(
         //     &vec![

@@ -1,4 +1,4 @@
-use crate::utils;
+use crate::{explanation::FormattingObserver, utils};
 
 use super::{Expression, SimplifyError, function, numeral};
 
@@ -7,9 +7,10 @@ impl Expression {
         &mut self,
         lhs: Expression,
         rhs: Expression,
-        explanation: &mut Option<Vec<String>>,
+        explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
-        let mut rule = "";
+        let before = Expression::exponentiation(lhs.clone(), rhs.clone());
+
         let result = match (lhs, rhs) {
             // 0^0 => ZeroExponentiationZero
             (
@@ -18,12 +19,16 @@ impl Expression {
             ) => Err(SimplifyError::ZeroExponentiationZero),
             // a^0 => 1
             (_, Expression::Number(numeral::Numeral::Integer(0))) => {
-                rule = "using a^0 => 1";
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("Something to the 0th power is one", &before, &Expression::integer(1));
+                }
                 Ok(Expression::integer(1))
             }
             // 1^x
             (Expression::Number(numeral::Numeral::Integer(1)), Expression::Number(_))  => {
-                rule = "using 1^x => 1";
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("One to any power is one", &before, &Expression::integer(1));
+                }
                 Ok(Expression::integer(1))
             }
             // (Expression::Number(numeral::Numeral::Integer(1)), Expression::Negation(x)) if *x == Expression::Number(_) => {
@@ -32,7 +37,9 @@ impl Expression {
             // }
             // a^1 => a
             (lhs, Expression::Number(numeral::Numeral::Integer(1))) => {
-                rule = "using a^1 => a";
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("Anything to the 1st power stay the same", &before, &lhs);
+                }
                 Ok(lhs)
             }
             // sqrt(a)^2 => a
@@ -40,7 +47,9 @@ impl Expression {
                 Expression::Function(function::Function::Sqrt, args),
                 Expression::Number(numeral::Numeral::Integer(2)),
             ) => {
-                rule = "using sqrt(a)^2 => a";
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("Square root to the 2th power cancel", &before, &args[0]);
+                }
                 Ok(args[0].clone())
             }
             // root(x, a)^x => a
@@ -48,91 +57,49 @@ impl Expression {
                 Expression::Function(function::Function::Root, args),
                 Expression::Number(numeral::Numeral::Integer(x)),
             ) if args[0] == Expression::Number(numeral::Numeral::Integer(x)) => {
-                rule = "using root(x, a)^x => a";
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("nth root to nth power cancel", &before, &Expression::integer(x));
+                }
                 Ok(args[1].clone())
             }
             // (a^b)^c => a^(b*c)
             (Expression::Exponentiation(base, exp), rhs) => {
-                rule = "using (a^b)^c => a^(b*c)";
-                if let Expression::Number(numeral::Numeral::Integer(_)) = rhs {
+                    if let Some(explanation) = explanation {
+                        explanation.rule_applied("Multiply the exponent", &before, &Expression::Exponentiation(
+                            base.clone(),
+                            Box::new(Expression::Multiplication(vec![*exp.clone(), rhs.clone()])),
+                        ));
+                    }
                     Expression::Exponentiation(
                         base,
                         Box::new(Expression::Multiplication(vec![*exp, rhs])),
                     )
                     .simplify(explanation)
-                } else if let Expression::Negation(neg) = rhs {
-                    if let Expression::Number(numeral::Numeral::Integer(_)) = *neg {
-                        Expression::Exponentiation(
-                            base,
-                            Box::new(Expression::Multiplication(vec![*exp, Expression::Negation(neg)])),
-                        )
-                        .simplify(explanation)
-                    } else {
-                        Ok(Expression::Exponentiation(
-                            Box::new(Expression::Exponentiation(base, exp)),
-                            Box::new(Expression::Negation(neg)),
-                        ))
-                    }
-                } 
-                else {
-                    Ok(Expression::Exponentiation(
-                        Box::new(Expression::Exponentiation(base, exp)),
-                        Box::new(rhs),
-                    ))
-                }
             }
             // (a*b)^c => a^c*b^c
             (Expression::Multiplication(terms), rhs) => {
-                rule = "using (a*b)^c => a^c*b^c";
-                if let Expression::Number(numeral::Numeral::Integer(a)) = rhs {
-                    let mut new_terms = vec![];
-                    for term in terms {
-                        new_terms.push(Expression::Exponentiation(
-                            Box::new(term),
-                            Box::new(Expression::integer(a)),
-                        ));
-                    }
-                    Expression::Multiplication(new_terms).simplify(explanation)
-                } else if let Expression::Negation(x) = rhs {
-                    if let Expression::Number(numeral::Numeral::Integer(a)) = *x {
-                        let mut new_terms = vec![];
-                        for term in terms {
-                            new_terms.push(Expression::Exponentiation(
-                                Box::new(term),
-                                Box::new(Expression::Negation(Box::new(Expression::integer(a)))),
-                            ));
-                        }
-                        Expression::Multiplication(new_terms).simplify(explanation)
-                    } else {
-                        Ok(Expression::Exponentiation(
-                            Box::new(Expression::Multiplication(terms)),
-                            Box::new(Expression::Negation(x.clone())),
-                        ))
-                    }
-                } else {
-                    Ok(Expression::Exponentiation(
-                        Box::new(Expression::Multiplication(terms)),
-                        Box::new(rhs),
-                    ))
-                }
+                let mut after: Expression = Expression::Multiplication( 
+                    terms
+                    .iter()
+                    .map(|term| {
+                    Expression::exponentiation(term.clone(), rhs.clone())
+                }).collect());
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("Distribute the exponent", &before, &after);
+                };
+                after.simplify(explanation)
             }
             // (a + b)^n where n is a integer
             (Expression::Addition(add), Expression::Number(numeral::Numeral::Integer(n))) => {
-                rule = "using (a + b)^n => multinomial expansion";
-                utils::multinomial_expansion(&add, n).simplify(explanation)
+                let mut after = utils::multinomial_expansion(&add, n);
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("Use the multinomial theoerm", &before, &after);
+                };
+                after.simplify(explanation)
             }
             // a^b => a^b
             (lhs, rhs) => Ok(Expression::Exponentiation(Box::new(lhs), Box::new(rhs))),
         };
-
-        if !rule.is_empty() {
-            if let Some(explanation) = explanation {
-                explanation.push(format!(
-                    "Simplifiyng Exponentiation {}",
-                    rule,
-                ));
-            }
-        }
 
         result
     }

@@ -101,12 +101,12 @@ mod tests {
         assert!(!expr1.is_equal(&expr4));
 
         let expr5 = Expression::Multiplication(vec![
-            Expression::Variable("x".to_string()),
-            Expression::Negation(Box::new(Expression::integer(2))),
-            Expression::sin(Expression::Exponentiation(
-                Box::new(Expression::Variable("x".to_string())),
-                Box::new(Expression::integer(2))
-            ))
+            Expression::variable("x"),
+            Expression::negation(Expression::integer(2)),
+            Expression::sin(Expression::exponentiation(
+                Expression::variable("x"),
+                Expression::integer(2))
+            )
         ]);
 
         let expr6 = Expression::Multiplication(vec![
@@ -116,6 +116,21 @@ mod tests {
         ]);
 
         assert!(expr5.is_equal(&expr6));
+
+        let expr7 = Expression::Multiplication(vec![
+            Expression::sin(Expression::exponentiation(Expression::variable("x"), Expression::integer(2))),
+            Expression::variable("x"),
+            Expression::negation(Expression::integer(4))
+        ]);
+
+        assert!(!expr5.is_equal(&expr7));
+    
+        let expr8 =
+        Expression::Multiplication(vec![Expression::variable("a"), Expression::variable("b"), Expression::integer(2)]);
+        let expr9 = 
+        Expression::Multiplication(vec![Expression::variable("a"), Expression::variable("b")]);
+
+        assert!(!expr8.is_equal(&expr9));    
     }
 
     #[test]
