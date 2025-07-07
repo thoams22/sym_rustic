@@ -8,75 +8,75 @@ impl Expression {
         terms: Vec<Expression>,
         explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
-        let before = Expression::Addition(terms.clone());
+        let before: Expression = Expression::Addition(terms.clone());
 
         if let Some(explanation) = explanation {
             explanation.step_started(&before);
         }
 
-        let mut result = vec![];
-        let mut sum: u64 = 0;
-        let mut neg: bool = false;
+        let mut result = terms;
+        // let mut sum: u64 = 0;
+        // let mut neg: bool = false;
 
-        for term in terms {
-            match term {
-                Expression::Number(numeral::Numeral::Integer(n)) => {
-                    if neg && n > sum {
-                        sum = n - sum;
-                        neg = false;
-                    } else if n == sum && neg {
-                        sum = 0;
-                        neg = false;
-                    } else if neg {
-                        sum -= n;
-                    } else {
-                        sum += n;
-                    }
-                }
-                Expression::Negation(inner) => {
-                    if let Expression::Number(numeral::Numeral::Integer(a)) = *inner {
-                        if a > sum && !neg {
-                            sum = a - sum;
-                            neg = true;
-                        } else if a == sum && !neg {
-                            sum = 0;
-                            neg = false;
-                        } else if neg {
-                            sum += a;
-                        } else {
-                            sum -= a;
-                        }
-                    } else {
-                        result.push(Expression::Negation(inner))
-                    }
-                }
-                Expression::Addition(inner_terms) => result.extend(inner_terms),
-                _ => result.push(term),
-            }
-        }
+        // for term in terms {
+        //     match term {
+        //         Expression::Number(numeral::Numeral::Integer(n)) => {
+        //             if neg && n > sum {
+        //                 sum = n - sum;
+        //                 neg = false;
+        //             } else if n == sum && neg {
+        //                 sum = 0;
+        //                 neg = false;
+        //             } else if neg {
+        //                 sum -= n;
+        //             } else {
+        //                 sum += n;
+        //             }
+        //         }
+        //         Expression::Negation(inner) => {
+        //             if let Expression::Number(numeral::Numeral::Integer(a)) = *inner {
+        //                 if a > sum && !neg {
+        //                     sum = a - sum;
+        //                     neg = true;
+        //                 } else if a == sum && !neg {
+        //                     sum = 0;
+        //                     neg = false;
+        //                 } else if neg {
+        //                     sum += a;
+        //                 } else {
+        //                     sum -= a;
+        //                 }
+        //             } else {
+        //                 result.push(Expression::Negation(inner))
+        //             }
+        //         }
+        //         Expression::Addition(inner_terms) => result.extend(inner_terms),
+        //         _ => result.push(term),
+        //     }
+        // }
 
-        if sum != 0 {
-                if neg {
-                    let after = Expression::negation(Expression::integer(sum));
-                    if let Some(explanation) = explanation {
-                        explanation.rule_applied("Add numbers ", &before, &after);
-                    }
-                    result.push(after)
-                } else {
-                    let after = Expression::integer(sum);
-                    if let Some(explanation) = explanation {
-                        explanation.rule_applied("Add numbers ", &before, &after);
-                    }
-                    result.push(after)
-                }
-        } else if result.is_empty() {
-            if let Some(explanation) = explanation {
-                let after = Expression::Number(numeral::Numeral::Integer(0));
-                explanation.rule_applied("Add numbers to 0", &before, &after);
-            }
+        // if sum != 0 {
+        //         if neg {
+        //             let after = Expression::negation(Expression::integer(sum));
+        //             if let Some(explanation) = explanation {
+        //                 explanation.rule_applied("Add numbers ", &before, &after);
+        //             }
+        //             result.push(after)
+        //         } else {
+        //             let after = Expression::integer(sum);
+        //             if let Some(explanation) = explanation {
+        //                 explanation.rule_applied("Add numbers ", &before, &after);
+        //             }
+        //             result.push(after)
+        //         }
+        // } else if result.is_empty() {
+        //     if let Some(explanation) = explanation {
+        //         let after = Expression::Number(numeral::Numeral::Integer(0));
+        //         explanation.rule_applied("Add numbers to 0", &before, &after);
+        //     }
 
-            return Ok(Expression::integer(0));
-        }
+        //     return Ok(Expression::integer(0));
+        // }
 
         let mut i: usize = 0;
         while i < result.len() {
@@ -84,6 +84,23 @@ impl Expression {
             while j < result.len() {
                 let before = Expression::Addition(result.clone());
                 match (&result[i], &result[j]) {
+                    (Expression::Addition(add), _) => {
+                        result.extend(add.clone());
+                        result.swap_remove(i);
+                    }
+                    (_, Expression::Addition(add)) => {
+                        result.extend(add.clone());
+                        result.swap_remove(j);
+                    }
+                    // a + 0 => a
+                    (a, Expression::Number(numeral::Numeral::Integer(0)))
+                    | (Expression::Number(numeral::Numeral::Integer(0)), a) => {
+                        if let Some(explanation) = explanation {
+                            explanation.rule_applied("Adding zero stay the same", &before, &a);
+                        }
+                        result[i] = a.clone();
+                        result.swap_remove(j);
+                    }
                     // a + b => c
                     (Expression::Number(a), Expression::Number(b)) => {
                         let after = Expression::Number(a.add(b));
@@ -276,10 +293,7 @@ impl Expression {
                     // a + c + di => (a + c) + di
                     (a, Expression::Complex(c, d)) | (Expression::Complex(c, d), a) => {
                         let mut after = if c.is_equal(&Expression::integer(0)) {
-                            Expression::complex(
-                                a.clone(),
-                                *d.clone(),
-                            )
+                            Expression::complex(a.clone(), *d.clone())
                         } else {
                             Expression::complex(
                                 Expression::Addition(vec![a.clone(), *c.clone()]),
@@ -326,9 +340,7 @@ impl Expression {
                         result[i] = after.simplify(explanation)?;
                         result.swap_remove(j);
                     }
-                    _ => {
-                        j += 1
-                    },
+                    _ => j += 1,
                 }
             }
             i += 1;

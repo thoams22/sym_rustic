@@ -788,7 +788,7 @@ mod tests_derivatives {
     use std::vec;
 
     use crate::{lex, parse, simplify};
-    use sym_rustic::ast::{Expression};
+    use sym_rustic::ast::Expression;
 
     #[test]
     fn test_derivative_constant() {
@@ -818,10 +818,7 @@ mod tests_derivatives {
     fn test_derivative_sum_2() {
         let expr = simplify(parse(lex("d/dx (x^2 + sin(x))")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::Addition(vec![
-            Expression::Multiplication(vec![
-                Expression::integer(2),
-                Expression::variable("x")
-            ]),
+            Expression::Multiplication(vec![Expression::integer(2), Expression::variable("x")]),
             Expression::cos(Expression::variable("x"))
         ])));
     }
@@ -868,8 +865,7 @@ mod tests_derivatives {
     #[test]
     fn test_derivative_function() {
         let expr = simplify(parse(lex("d/dx (sin(x))")), &mut None).unwrap();
-        assert!(expr.is_equal(&
-            Expression::cos(Expression::variable("x"))        ));
+        assert!(expr.is_equal(&Expression::cos(Expression::variable("x"))));
     }
 
     #[test]
@@ -884,10 +880,10 @@ mod tests_derivatives {
     #[test]
     fn test_derivative_logarithmic() {
         let expr = simplify(parse(lex("d/dx (ln(x))")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::exponentiation(
+        assert!(expr.is_equal(&Expression::division(
+            Expression::integer(1),
             Expression::variable("x"),
-            Expression::negation(Expression::integer(1)),
-        )));
+        ),));
     }
 
     #[test]

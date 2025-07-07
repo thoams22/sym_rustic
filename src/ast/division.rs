@@ -35,13 +35,9 @@ impl Expression {
                 }
                 Ok(Expression::integer(1))
             },
-            (
-                Expression::Number(numeral::Numeral::Integer(a)),
-                Expression::Number(numeral::Numeral::Integer(b)),
-            ) => Ok(Expression::rational(a, b).simplify(explanation)?),
             // a/b where a & b are numeral
             (Expression::Number(lhs), Expression::Number(rhs)) => {
-                Ok(Expression::Number(lhs.div(&rhs)))
+                Expression::Number(lhs.div(&rhs)).simplify(explanation)
             }
             // a/(b/c) => (a*c)/b
             (lhs, Expression::Division(rhs1, rhs2)) => {

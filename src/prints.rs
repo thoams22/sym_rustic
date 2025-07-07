@@ -18,7 +18,7 @@ impl Expression {
     ///         ]),
     ///         Expression::integer(5)
     ///     ]);
-    /// print!("{}", expr.print_tree(0))
+    /// expr.print_tree(0)
     /// ```
     /// Addition:
     ///   + Multiplication:
@@ -27,7 +27,7 @@ impl Expression {
     ///   + 5
     ///
     pub fn print_tree(&self, indent: usize) {
-        print!("{}", self.calculate_tree(indent))
+        println!("{}", self.calculate_tree(indent))
     }
     
     pub fn calculate_tree(&self, indent: usize) -> String  {

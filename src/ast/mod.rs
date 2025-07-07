@@ -364,10 +364,42 @@ impl Expression {
             Expression::Subtraction(lhs, rhs) => {
                 let lhs = lhs.simplify(explanation)?;
                 let rhs = rhs.simplify(explanation)?;
+                let before = &Expression::subtraction(lhs.clone(), rhs.clone());
                 match (lhs, rhs) {
-                    (lhs, Expression::Number(numeral::Numeral::Integer(0))) => Ok(lhs),
+                    // a - 0
+                    (lhs, Expression::Number(numeral::Numeral::Integer(0))) => {
+                        if let Some(explanation) = explanation {
+                            explanation.rule_applied("Substracting zero stay the same", before, &lhs);
+                        }
+                        Ok(lhs)},
+                    // 0 - a
                     (Expression::Number(numeral::Numeral::Integer(0)), rhs) => {
-                        Ok(Expression::Negation(Box::new(rhs)))
+                        let after  =Expression::Negation(Box::new(rhs));
+                        if let Some(explanation) = explanation {
+                            explanation.rule_applied("Adding zero stay the same", before, &after);
+                        }
+                        Ok(after)
+                    }
+                    // a - b => c 
+                    (Expression::Number(lhs), Expression::Number(rhs)) => {
+                        let after  = lhs.sub(&rhs);
+                        if let Some(explanation) = explanation {
+                            explanation.rule_applied("Substracting numbers", before, &after);
+                        }
+                        Ok(after)
+                    }
+                    // -a - b => -(c)
+                    (Expression::Negation(lhs), Expression::Number(rhs)) => {
+                        if let Expression::Number(inner_lhs) = *lhs {
+                            let after  = Expression::negation(Expression::Number(inner_lhs.add(&rhs)));
+                            if let Some(explanation) = explanation {
+                                explanation.rule_applied("Substracting numbers", before, &after);
+                            }
+                            Ok(after)
+                        } else {
+                            Expression::Addition(vec![*lhs, Expression::negation(Expression::Number(rhs))])
+                            .simplify(explanation)
+                        }
                     }
                     (lhs, rhs) => {
                         Expression::Addition(vec![lhs, Expression::Negation(Box::new(rhs))])
