@@ -1,4 +1,4 @@
-use crate::{ast::numeral::Numeral, explanation::FormattingObserver};
+use crate::explanation::FormattingObserver;
 
 use super::{Expression, SimplifyError, numeral};
 
@@ -16,42 +16,13 @@ impl Expression {
         }
 
         let mut result = simplified_terms;
-        let mut prod = Numeral::Integer(1);
         let mut negative: bool = false;
-
-        let mut i = 0;
-        while i < result.len() {
-            match &result[i] {
-                Expression::Number(num) => {
-                    prod = prod.mul(num);
-                    result.swap_remove(i);
-                }
-                Expression::Multiplication(inner_terms) => {
-                    result.extend(inner_terms.clone());
-                    result.swap_remove(i);
-                }
-                Expression::Negation(expr) => {
-                    negative = !negative;
-                    result[i] = *expr.clone();
-                }
-                _ => i += 1,
-            }
-        }
-
-        if prod.is_zero() {
-            return Ok(Expression::integer(0));
-        } else if !prod.is_one(){
-            let mut after = Expression::Number(prod);
-            if let Some(explanation) = explanation {
-                explanation.rule_applied("Multiply numbers ", &before, &after);
-            }
-            result.push(after.simplify(explanation)?);
-        }
 
         let mut i: usize = 0;
         while i < result.len() {
             let mut j: usize = i + 1;
             while j < result.len() {
+                let before = Expression::Multiplication(result.clone());
                 match (&result[i], &result[j]) {
                     // a * 0 => 0
                     (Expression::Number(numeral::Numeral::Integer(0)), _)
@@ -70,6 +41,34 @@ impl Expression {
                         result.extend(mult.clone());
                         result.swap_remove(j);
                     }
+                    (Expression::Multiplication(mult), _) => {
+                        result.extend(mult.clone());
+                        result.swap_remove(i);
+                    }
+                    // -a * -b => a * b
+                    (Expression::Negation(a), Expression::Negation(b)) => {
+                        if let Some(explanation) = explanation {
+                            let after = Expression::Multiplication(vec![*a.clone(), *b.clone()]);
+                            explanation.rule_applied(
+                                "Multiply two negative expression cancel the negative",
+                                &Expression::Multiplication(result.clone()),
+                                &after,
+                            );
+                        };
+                        let new_b = *b.clone();
+                        result[i] = *a.clone();
+                        result[j] = new_b;
+                    }
+                    // a * -b => -(a * b)
+                    (_, Expression::Negation(b)) => {
+                        negative = !negative;
+                        result[j] = *b.clone();
+                    }
+                    // -a * b => -(a * b)
+                    (Expression::Negation(b), _) => {
+                        negative = !negative;
+                        result[i] = *b.clone();
+                    }
                     // 1 * a => a
                     (Expression::Number(numeral::Numeral::Integer(1)), a)
                     | (a, Expression::Number(numeral::Numeral::Integer(1))) => {
@@ -81,6 +80,18 @@ impl Expression {
                             );
                         }
                         result[i] = a.clone();
+                        result.swap_remove(j);
+                    }
+                    (Expression::Number(a), Expression::Number(b)) => {
+                        let after = Expression::Number(a.mul(b));
+                        if let Some(explanation) = explanation {
+                            explanation.rule_applied(
+                                "Multiply numbers",
+                                &Expression::Multiplication(result.clone()),
+                                &after,
+                            );
+                        };
+                        result[i] = after;
                         result.swap_remove(j);
                     }
                     // a * a => a^2
@@ -98,38 +109,6 @@ impl Expression {
                         }
                         result[i] = after.simplify(explanation)?;
                         result.swap_remove(j);
-                    }
-                    (Expression::Number(a), Expression::Number(b)) => {
-                        let mut after = Expression::Number(a.mul(b));
-                        if let Some(explanation) = explanation {
-                            explanation.rule_applied(
-                                "Multiply numbers",
-                                &Expression::Multiplication(result.clone()),
-                                &after,
-                            );
-                        };
-                        result[i] = after.simplify(explanation)?;
-                        result.swap_remove(j);
-                    }
-                    // -a * -b => a * b
-                    (Expression::Negation(a), Expression::Negation(b)) => {
-                        if let Some(explanation) = explanation {
-                            let after = Expression::Multiplication(vec![*a.clone(), *b.clone()]);
-                            explanation.rule_applied(
-                                "Multiply two negative expression cancel the negative",
-                                &Expression::Multiplication(result.clone()),
-                                &after,
-                            );
-                        };
-                        let new_b = *b.clone();
-                        result[i] = *a.clone();
-                        result[j] = new_b;
-                    }
-                    // a * -b => -(a * b)
-                    // -a * b => -(a * b)
-                    (_, Expression::Negation(b)) | (Expression::Negation(b), _) => {
-                        negative = !negative;
-                        result[j] = *b.clone();
                     }
                     // (a + b i)(c + d i) => ac - bd + ad i + bc i
                     (
@@ -257,8 +236,8 @@ impl Expression {
                         }
                     }
                     // a*(b/c) => (a*c)/b
-                    (norm, Expression::Division(num, den)) |
-                    (Expression::Division(num, den), norm) => {
+                    (norm, Expression::Division(num, den))
+                    | (Expression::Division(num, den), norm) => {
                         let mut after = Expression::division(
                             Expression::Multiplication(vec![norm.clone(), *num.clone()]),
                             *den.clone(),
