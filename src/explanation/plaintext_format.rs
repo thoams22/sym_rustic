@@ -7,11 +7,20 @@ impl ExplanationFormatter for TextFormatter {
         format!("- {}\n  Before: {}\n  After:  {}", rule_name, before, after)
     }
     
-    fn format_step_started(&self, expression: &Expression) -> String {
+    fn format_simplify_step_started(&self, expression: &Expression) -> String {
         format!("Simplifying expression: {}", expression)
     }
     
-    fn format_step_completed(&self, result: &Expression) -> String {
-        format!("After simplifying result: {}", result)
+    fn format_simplify_step_completed(&self, result: &Expression) -> String {
+        format!("Simplifying result: {}", result)
+    }
+    
+    fn format_solve_step_started(&self, expression: &Expression) -> String {
+        format!("Solving expression: {}", expression)
+
+    }
+
+    fn format_solve_step_completed(&self, result: &Expression) -> String {
+        format!("Solved result: {}", result)
     }
 }

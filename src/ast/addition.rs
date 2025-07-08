@@ -11,7 +11,7 @@ impl Expression {
         let before: Expression = Expression::Addition(terms.clone());
 
         if let Some(explanation) = explanation {
-            explanation.step_started(&before);
+            explanation.simplify_step_started(&before);
         }
 
         let mut result = terms;
@@ -349,13 +349,13 @@ impl Expression {
         Ok(if result.len() == 1 {
             let res = result.pop().unwrap();
             if let Some(explanation) = explanation {
-                explanation.step_completed(&res);
+                explanation.simplify_step_completed(&res);
             }
             res
         } else {
             let result = Expression::Addition(result);
             if let Some(explanation) = explanation {
-                explanation.step_completed(&result);
+                explanation.simplify_step_completed(&result);
             }
             result
         })

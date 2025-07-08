@@ -32,15 +32,15 @@ pub enum Expression {
     Number(numeral::Numeral),
     Variable(String),
     Constant(Constant),
-    // Multinary
-    Addition(Vec<Expression>),
-    Multiplication(Vec<Expression>),
     // Binary
     Subtraction(Box<Expression>, Box<Expression>),
     Division(Box<Expression>, Box<Expression>),
     Exponentiation(Box<Expression>, Box<Expression>),
     Equality(Box<Expression>, Box<Expression>),
     Complex(Box<Expression>, Box<Expression>),
+    // Multinary
+    Addition(Vec<Expression>),
+    Multiplication(Vec<Expression>),
     // Function
     Function(function::Function, Vec<Expression>),
     // Calculus
@@ -79,6 +79,10 @@ impl Expression {
 
     pub fn negation(arg: Expression) -> Expression {
         Expression::Negation(Box::new(arg))
+    }
+
+    pub fn equality(lhs: Expression, rhs: Expression) -> Expression {
+        Expression::Equality(Box::new(lhs), Box::new(rhs))
     }
 
     pub fn complex(lhs: Expression, rhs: Expression) -> Expression {

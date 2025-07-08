@@ -8,8 +8,11 @@ pub trait ExplanationFormatter {
         before: &Expression,
         after: &Expression,
     ) -> String;
-    fn format_step_started(&self, expression: &Expression) -> String;
-    fn format_step_completed(&self, result: &Expression) -> String;
+    fn format_simplify_step_started(&self, expression: &Expression) -> String;
+    fn format_simplify_step_completed(&self, result: &Expression) -> String;
+    
+    fn format_solve_step_started(&self, expression: &Expression) -> String;
+    fn format_solve_step_completed(&self, result: &Expression) -> String;
 }
 
 #[derive(Clone)]
@@ -51,21 +54,22 @@ impl FormattingObserver {
         });
         self.last_step = LastStep::Step;
     }
-    pub fn step_started(&mut self, expression: &Expression) {
+
+    pub fn simplify_step_started(&mut self, expression: &Expression) {
         self.explanations.push(match self.format {
-            OutputFormat::Text => TextFormatter.format_step_started(expression),
+            OutputFormat::Text => TextFormatter.format_simplify_step_started(expression),
         });
         self.last_step = LastStep::Start;
     }
     
-    pub fn step_completed(&mut self, result: &Expression) {
+    pub fn simplify_step_completed(&mut self, result: &Expression) {
         // If the last explanation is a start then there was no simplification so it is removed
         if self.last_step == LastStep::Start {
             self.explanations.pop();
             self.last_step = LastStep::Start;
         } else {
             self.explanations.push(match self.format {
-                OutputFormat::Text => TextFormatter.format_step_completed(result),
+                OutputFormat::Text => TextFormatter.format_simplify_step_completed(result),
             });
             self.last_step = LastStep::End;
         }
@@ -73,5 +77,18 @@ impl FormattingObserver {
 
     pub fn open_explaination(&mut self, explanation: String) {
         self.explanations.push(explanation);
+    }
+
+    pub fn solve_step_started(&mut self, expression: &Expression) {
+        self.explanations.push(match self.format {
+            OutputFormat::Text => TextFormatter.format_solve_step_started(expression),
+        });
+    }
+    
+    pub fn solve_step_completed(&mut self, result: &Expression) {
+
+            self.explanations.push(match self.format {
+                OutputFormat::Text => TextFormatter.format_solve_step_completed(result),
+            });
     }
 }

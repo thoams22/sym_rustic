@@ -12,7 +12,7 @@ impl Expression {
         let before = Expression::Multiplication(simplified_terms.clone());
 
         if let Some(explanation) = explanation {
-            explanation.step_started(&before);
+            explanation.simplify_step_started(&before);
         }
 
         let mut result = simplified_terms;
@@ -301,12 +301,12 @@ impl Expression {
         if negative {
             let mut result = Expression::negation(sol);
             if let Some(explanation) = explanation {
-                explanation.step_completed(&result);
+                explanation.simplify_step_completed(&result);
             }
             result.simplify(explanation)
         } else {
             if let Some(explanation) = explanation {
-                explanation.step_completed(&sol);
+                explanation.simplify_step_completed(&sol);
             }
             Ok(sol)
         }
