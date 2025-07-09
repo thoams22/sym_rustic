@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::{ast::Expr, explanation::FormattingObserver};
+use crate::{ast::Expr, explanation::FormattingObserver, prints::PrettyPrints};
 
 use super::{Expression, SimplifyError, constant::Constant, function::FunctionType};
 
@@ -41,6 +41,10 @@ impl Expr for Derivative {
 
     fn contains_var(&self, variable: &str) -> bool {
         self.term.contains_var(variable)
+    }
+
+    fn is_single(&self) -> bool {
+        false
     }
 }
 
@@ -125,8 +129,8 @@ impl Expression {
                 }
                 return Ok(after)
             }
-            Expression::Variable(v) => {
-                return  if v == variable {
+            Expression::Variable(var) => {
+                return  if var.name == variable {
                     let after = Expression::integer(1);
                     if let Some(explanation) = explanation {
                         explanation.rule_applied(
@@ -152,7 +156,7 @@ impl Expression {
                 if let Some(explanation) = explanation {
                     let after = Expression::negation(Expression::derivative(
                         neg.term.clone(),
-                        &variable,
+                        variable,
                         1,
                     ));
                     explanation.rule_applied(
@@ -399,12 +403,12 @@ impl Expression {
 
     fn differentiate_function(
         func: &FunctionType,
-        args: &Vec<Expression>,
+        args: &[Expression],
         variable: &str,
         explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
         let before = Expression::derivative(
-            Expression::function(func.clone(), args.clone()),
+            Expression::function(func.clone(), args.to_owned()),
             variable,
             1,
         );
@@ -1015,5 +1019,140 @@ impl Expression {
             false => None,
             true => Some(Expression::derivative(expr.clone(), variable, 1)),
         }
+    }
+}
+
+impl PrettyPrints for Derivative {
+    fn calculate_tree(&self, indent: usize) -> String {
+        let next_indent = indent + 2;
+        let next_indent_str = " ".repeat(next_indent);
+
+        format!(
+            "Derivative{}:\n{}{}\n{}' {}",
+            if self.order > 1 {
+                format!("({})", self.order)
+            } else {
+                "".to_owned()
+            },
+            next_indent_str,
+            self.term.calculate_tree(next_indent),
+            next_indent_str,
+            self.variable,
+        )
+    }
+
+    fn calculate_positions(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+        position: &mut Vec<(String, (usize, usize))>,
+        prev_pos: (usize, usize),
+    ) {
+        let length = self.variable.len()
+        + 2
+        + if self.order == 1 {
+            0
+        } else {
+            self.order.to_string().len()
+        };
+
+    let below_height = self.get_below_height(memoization);
+
+    let span = self.variable.len() / 2;
+
+    let mut pos = prev_pos;
+
+    let new_height = pos.0 + below_height;
+    pos.0 = new_height - (1 + if self.order == 1 { 0 } else { 1 });
+
+    // d
+    position.push(("d".to_string(), pos));
+    pos.1 += 2;
+    // d var
+    for (i, c) in self.variable.chars().enumerate() {
+        position.push((c.to_string(), (pos.0, pos.1 + i)));
+    }
+    if self.order != 1 {
+        //     order
+        // d var
+        pos.1 += self.variable.len();
+        pos.0 += 1;
+        for (i, c) in self.order.to_string().chars().enumerate() {
+            position.push((c.to_string(), (pos.0, pos.1 + i)));
+        }
+        pos.1 -= self.variable.len();
+    }
+    pos.1 -= 2;
+
+    pos.0 += 1;
+    // ---------
+    //     order
+    // d var
+    for _ in 0..length {
+        position.push(("-".to_string(), pos));
+        pos.1 += 1;
+    }
+
+    pos.1 -= length;
+    pos.0 += 1;
+    //    d
+    // ---------
+    //     order
+    // d var
+    pos.1 += span;
+    position.push(("d".to_string(), pos));
+    if self.order != 1 {
+        //    order
+        //   d
+        // ----------
+        //      order
+        // d var
+        pos.1 += 1;
+        pos.0 += 1;
+        for (i, c) in self.order.to_string().chars().enumerate() {
+            position.push((c.to_string(), (pos.0, pos.1 + i)));
+        }
+        pos.1 -= 1;
+        pos.0 -= 1;
+    }
+    pos.1 -= span;
+    //    order
+    //   d
+    // ----------  expr
+    //      order
+    // d var
+    let height = new_height - self.term.get_below_height(memoization);
+    self.term
+        .calculate_positions(memoization, position, (height, pos.1 + length + 1));
+    }
+
+    fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self
+                .term
+                .get_below_height(memoization)
+                .max(1 + if self.order == 1 { 0 } else { 1 })
+    }
+
+    fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        let der_below = 1 + if self.order == 1 { 0 } else { 1 };
+                let expr_below = self.term.get_below_height(memoization);
+
+                let top = (3 + if self.order == 1 { 0 } else { 2 } - der_below)
+                    .max(self.term.get_height(memoization) - expr_below);
+                if der_below > expr_below {
+                    der_below + top
+                } else {
+                    expr_below + top
+                }
+    }
+
+    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.term.get_length(memoization)
+                    + self.variable.len()
+                    + 3
+                    + if self.order == 1 {
+                        0
+                    } else {
+                        self.order.to_string().len()
+                    }
     }
 }

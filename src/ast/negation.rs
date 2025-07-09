@@ -1,6 +1,6 @@
 use crate::{
     ast::{numeral::Numeral, Expr, SimplifyError},
-    explanation::FormattingObserver,
+    explanation::FormattingObserver, prints::PrettyPrints,
 };
 
 use super::Expression;
@@ -79,6 +79,10 @@ impl Expr for Negation {
     fn contains_var(&self, variable: &str) -> bool {
         self.term.contains_var(variable)
     }
+
+    fn is_single(&self) -> bool {
+        true
+    }
 }
 
 impl std::fmt::Display for Negation {
@@ -92,5 +96,44 @@ impl std::fmt::Display for Negation {
                 format!("({})", self.term)
             }
         )
+    }
+}
+
+impl PrettyPrints for Negation {
+    fn calculate_tree(&self, indent: usize) -> String {
+        let next_indent = indent + 2;
+        let next_indent_str = " ".repeat(next_indent);
+
+        format!(
+            "Negation:\n{}- {}",
+            next_indent_str,
+            self.term.calculate_tree(indent)
+        )
+    }
+
+    fn calculate_positions(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+        position: &mut Vec<(String, (usize, usize))>,
+        prev_pos: (usize, usize),
+    ) {
+        let mut pos = prev_pos;
+        position.push(("-".to_string(), pos));
+        pos.1 += 1;
+        position.push((" ".to_string(), pos));
+        pos.1 += 1;
+        self.term.calculate_positions(memoization, position, pos);
+    }
+
+    fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.term.get_below_height(memoization)
+    }
+
+    fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.term.get_height(memoization)
+    }
+
+    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.term.get_length(memoization) + 2
     }
 }

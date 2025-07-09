@@ -2,10 +2,9 @@
 mod print_tests {
     use std::vec;
 
-    use sym_rustic::ast::{
-        Expression,
-        constant::Constant,
-    };
+    use sym_rustic::{ast::{
+        constant::Constant, Expression
+    }, prints::PrettyPrints};
 
     #[test]
     fn test_calculate_tree_simple_expressions() {

@@ -1,6 +1,6 @@
 use crate::{
-    ast::{Expr, SimplifyError, numeral},
-    explanation::FormattingObserver,
+    ast::{numeral, Expr, SimplifyError},
+    explanation::FormattingObserver, prints::PrettyPrints,
 };
 
 use super::Expression;
@@ -82,25 +82,75 @@ impl Expr for Subtraction {
     fn contains_var(&self, variable: &str) -> bool {
         self.left.contains_var(variable) || self.right.contains_var(variable)
     }
+
+    fn is_single(&self) -> bool {
+        false
+    }
 }
 
 impl std::fmt::Display for Subtraction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "{}i*{}",
-            if self.left.is_equal(&Expression::integer(0)) {
-                format!("")
-            } else {
-                format!("{} + ", self.left)
-            },
-            if self.right.is_equal(&Expression::integer(0)) {
-                format!("")
-            } else if self.right.is_single() {
+            "{} - {}",
+            self.left,
+            if self.right.is_single() {
                 format!("{}", self.right)
             } else {
                 format!("({})", self.right)
             }
         )
+    }
+}
+
+impl PrettyPrints for Subtraction {
+    fn calculate_tree(&self, indent: usize) -> String {
+        let next_indent = indent + 2;
+        let next_indent_str = " ".repeat(next_indent);
+
+        format!(
+            "Subtraction:\n{}{}\n{}- {}",
+            next_indent_str,
+            self.left.calculate_tree(next_indent),
+            next_indent_str,
+            self.right.calculate_tree(next_indent)
+        )
+    }
+
+    fn calculate_positions(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+        position: &mut Vec<(String, (usize, usize))>,
+        prev_pos: (usize, usize),
+    ) {
+        
+        let mut pos = prev_pos;
+        self.left.calculate_positions(memoization, position, pos);
+        pos.1 += self.left.get_length(memoization);
+        position.push((" ".to_string(), pos));
+        pos.1 += 1;
+        position.push(("-".to_string(), pos));
+        pos.1 += 1;
+        position.push((" ".to_string(), pos));
+        pos.1 += 1;
+        self.right.calculate_positions(memoization, position, pos);
+    }
+
+    fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self
+                .left
+                .get_below_height(memoization)
+                .max(self.right.get_below_height(memoization))
+    }
+
+    fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self
+                .left
+                .get_height(memoization)
+                .max(self.right.get_height(memoization))
+    }
+
+    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.left.get_length(memoization) + 3 + self.right.get_length(memoization)
     }
 }

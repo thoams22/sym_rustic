@@ -1,4 +1,4 @@
-use crate::{ast::{function::{Function, FunctionType}, Expr}, explanation::FormattingObserver, utils};
+use crate::{ast::{function::{Function, FunctionType}, Expr}, explanation::FormattingObserver, prints::PrettyPrints, utils};
 
 use super::{Expression, SimplifyError, numeral};
 
@@ -38,6 +38,10 @@ impl Expr for Exponentiation {
 
     fn contains_var(&self, variable: &str) -> bool {
         self.base.contains_var(variable) || self.expo.contains_var(variable)
+    }
+
+    fn is_single(&self) -> bool {
+        false
     }
 }
 
@@ -160,5 +164,90 @@ impl Exponentiation {
         };
 
         result
+    }
+}
+
+impl PrettyPrints for Exponentiation {
+    fn calculate_tree(&self, indent: usize) -> String {
+        let next_indent = indent + 2;
+        let next_indent_str = " ".repeat(next_indent);
+
+        format!(
+            "Exponentiation:\n{}{}\n{}^ {}",
+            next_indent_str,
+            self.base.calculate_tree(next_indent),
+            next_indent_str,
+            self.expo.calculate_tree(next_indent)
+        )
+    }
+
+    fn calculate_positions(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+        position: &mut Vec<(String, (usize, usize))>,
+        prev_pos: (usize, usize),
+    ) {
+        let mut pos = prev_pos;
+                if matches!(
+                    self.base,
+                    Expression::Addition(_)
+                        | Expression::Multiplication(_)
+                        | Expression::Exponentiation(_)
+                        | Expression::Complex(_)
+                        | Expression::Division(_)
+                ) {
+                    Self::calculate_parenthesis(
+                        position,
+                        pos,
+                        true,
+                        self.base.get_height(memoization),
+                    );
+                    pos.1 += 1;
+                }
+                self.base.calculate_positions(memoization, position, pos);
+                pos.1 += self.base.get_length(memoization);
+                if matches!(
+                    self.base,
+                    Expression::Addition(_)
+                        | Expression::Multiplication(_)
+                        | Expression::Exponentiation(_)
+                        | Expression::Complex(_)
+                        | Expression::Division(_)
+                ) {
+                    Self::calculate_parenthesis(
+                        position,
+                        pos,
+                        false,
+                        self.base.get_height(memoization),
+                    );
+                    pos.1 += 1;
+                }
+                pos.0 += self.base.get_height(memoization);
+                self.expo.calculate_positions(memoization, position, pos);
+    }
+
+    fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.base.get_below_height(memoization)
+    }
+
+    fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.base.get_height(memoization) + self.expo.get_height(memoization)
+    }
+
+    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.base.get_length(memoization)
+        + self.expo.get_length(memoization)
+        + if matches!(
+            self.base,
+            Expression::Addition(_)
+                | Expression::Multiplication(_)
+                | Expression::Exponentiation(_)
+                | Expression::Complex(_)
+                | Expression::Division(_)
+        ) {
+            2
+        } else {
+            0
+        }
     }
 }

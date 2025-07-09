@@ -1,6 +1,6 @@
 use crate::{
     ast::{numeral::Numeral, Expr, Expression, SimplifyError},
-    explanation::FormattingObserver,
+    explanation::FormattingObserver, prints::PrettyPrints,
 };
 
 #[derive(Debug, PartialEq, Clone, PartialOrd, Eq, Ord, Hash)]
@@ -44,6 +44,10 @@ impl Expr for Function {
             2 => self.args[1].contains_var(variable),
             _ => panic!("Sould'nt have more than 2 arguments"),
         }
+    }
+
+    fn is_single(&self) -> bool {
+        true
     }
 }
 
@@ -217,5 +221,73 @@ impl std::fmt::Display for FunctionType {
             FunctionType::Pow => write!(f, "pow"),
             FunctionType::Root => write!(f, "root"),
         }
+    }
+}
+
+impl PrettyPrints for Function {
+    fn calculate_tree(&self, _indent: usize) -> String {
+        let mut result = format!("{}(", self.name);
+        for (i, arg) in self.args.iter().enumerate() {
+            result.push_str(&arg.calculate_tree(0));
+            if i < self.args.len() - 1 {
+                result.push_str(", ");
+            }
+        }
+        result.push(')');
+        result
+    }
+
+    fn calculate_positions(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+        position: &mut Vec<(String, (usize, usize))>,
+        prev_pos: (usize, usize),
+    ) {
+        let mut pos = prev_pos;
+        let height = self.get_height(memoization);
+
+        self.name.to_string().chars().for_each(|c| {
+            position.push((c.to_string(), pos));
+            pos.1 += 1;
+        });
+        Self::calculate_parenthesis(position, pos, true, height);
+        pos.1 += 1;
+        self.args.iter().enumerate().for_each(|(i, x)| {
+            x.calculate_positions(memoization, position, pos);
+            pos.1 += x.get_length(memoization);
+            if i < self.args.len() - 1 {
+                position.push((",".to_string(), pos));
+                pos.1 += 1;
+                position.push((" ".to_string(), pos));
+                pos.1 += 1;
+            }
+        });
+        Self::calculate_parenthesis(position, pos, false, height);
+    }
+
+    fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self
+                .args
+                .iter()
+                .map(|x| x.get_below_height(memoization))
+                .max()
+                .unwrap_or(0)
+    }
+
+    fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self
+                .args
+                .iter()
+                .map(|x| x.get_height(memoization))
+                .max()
+                .unwrap_or(1)
+    }
+
+    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.args
+        .iter()
+        .map(|x| x.get_length(memoization) + 2)
+        .sum::<usize>()
+        + self.name.get_length()
     }
 }

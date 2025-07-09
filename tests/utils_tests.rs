@@ -3,8 +3,7 @@ mod tests {
     use std::collections::HashMap;
 
     use sym_rustic::{
-        ast::Expression,
-        utils::{factorial, gcd, lcm, multinomial_expansion, prime_factors},
+        ast::Expression, prints::PrettyPrints, utils::{factorial, gcd, lcm, multinomial_expansion, prime_factors}
     };
 
     #[test]

@@ -1,5 +1,5 @@
 use crate::{
-    ast::Expr, explanation::FormattingObserver, utils
+    ast::Expr, explanation::FormattingObserver, prints::PrettyPrints, utils
 };
 
 use super::{Expression, SimplifyError};
@@ -93,6 +93,13 @@ impl Expr for Numeral {
     fn contains_var(&self, _variable: &str) -> bool {
         false
     }
+
+    fn is_single(&self) -> bool {
+        match self {
+            Numeral::Integer(_) => true,
+            Numeral::Rational(_, _) => false,
+        }
+    }
     
 }
 
@@ -166,6 +173,48 @@ impl std::fmt::Display for Numeral {
         match self {
             Numeral::Integer(n) => write!(f, "{}", n),
             Numeral::Rational(n, d) => write!(f, "{}/{}", n, d),
+        }
+    }
+}
+
+impl PrettyPrints for Numeral {
+    fn calculate_tree(&self, _indent: usize) -> String {
+        format!("{}", self)
+
+    }
+
+    fn calculate_positions(
+        &self,
+        _memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+        position: &mut Vec<(String, (usize, usize))>,
+        prev_pos: (usize, usize),
+    ) {
+        for (i, c) in self.to_string().chars().enumerate() {
+            position.push((c.to_string(), (prev_pos.0, prev_pos.1 + i)));
+        }
+    }
+
+    fn get_below_height(&self, _memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        match self {
+            Numeral::Integer(_) => 0,
+            Numeral::Rational(_num, _den) => 1,
+        }
+    }
+
+    fn get_height(&self, _memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        match self {
+            Numeral::Integer(_) => 1,
+            Numeral::Rational(_num, _den) => 3,
+        }
+    }
+
+    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        match self {
+            Numeral::Integer(num) => num.to_string().len(),
+            Numeral::Rational(num, den) => {
+                Expression::division(Expression::integer(*num), Expression::integer(*den))
+                    .get_length(memoization)
+            }
         }
     }
 }

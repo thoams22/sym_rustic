@@ -7,7 +7,7 @@ use crate::{
         addition::Addition, complex::Complex, constant::Constant, derivative::Derivative,
         division::Division, equality::Equality, exponentiation::Exponentiation,
         function::FunctionType, multiplication::Multiplication, negation::Negation,
-        numeral::Numeral, subtraction::Subtraction,
+        numeral::Numeral, subtraction::Subtraction, variable::Variable,
     },
     explanation::FormattingObserver,
 };
@@ -24,6 +24,7 @@ mod multiplication;
 mod negation;
 pub mod numeral;
 mod subtraction;
+mod variable;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum SimplifyError {
@@ -41,59 +42,7 @@ pub trait Expr: std::fmt::Display {
 
     fn is_equal(&self, other: &Self) -> bool;
     fn contains_var(&self, variable: &str) -> bool;
-
-    // Printing methods
-    // fn calculate_tree(&self, indent: usize) -> String;
-
-    // fn calculate_positions(
-    //     &self,
-    //     memoization: &mut HashMap<Expression, (usize, usize)>,
-    //     position: &mut Vec<(String, (usize, usize))>,
-    //     prev_pos: (usize, usize),
-    // );
-
-    // fn get_below_height(&self, memoization: &mut HashMap<Expression, (usize, usize)>) -> usize;
-    // fn get_height(&self, memoization: &mut HashMap<Expression, (usize, usize)>) -> usize;
-    // fn get_length(&self, memoization: &mut HashMap<Expression, (usize, usize)>) -> usize;
-
-    // fn calculate_parenthesis(
-    //     position: &mut Vec<(String, (usize, usize))>,
-    //     prev_pos: (usize, usize),
-    //     left: bool,
-    //     height: usize,
-    // ) {
-    //     if height == 1 {
-    //         position.push((
-    //             if left {
-    //                 "(".to_string()
-    //             } else {
-    //                 ")".to_string()
-    //             },
-    //             prev_pos,
-    //         ))
-    //     } else {
-    //         position.push((
-    //             if left {
-    //                 "/".to_string()
-    //             } else {
-    //                 "\\".to_string()
-    //             },
-    //             (prev_pos.0 + height - 1, prev_pos.1),
-    //         ));
-
-    //         for i in 0..(height - 2) {
-    //             position.push(("|".to_string(), (prev_pos.0 + height - i - 2, prev_pos.1)));
-    //         }
-    //         position.push((
-    //             if !left {
-    //                 "/".to_string()
-    //             } else {
-    //                 "\\".to_string()
-    //             },
-    //             (prev_pos.0, prev_pos.1),
-    //         ));
-    //     }
-    // }
+    fn is_single(&self) -> bool;
 }
 
 #[derive(Debug, PartialEq, Clone, PartialOrd, Eq, Ord, Hash)]
@@ -101,7 +50,7 @@ pub enum Expression {
     // Unary
     Negation(Box<Negation>),
     Number(Numeral),
-    Variable(String),
+    Variable(Variable),
     Constant(Constant),
     // Multinary
     Addition(Addition),
@@ -116,7 +65,7 @@ pub enum Expression {
     Function(Function),
     // Calculus
     Derivative(Box<Derivative>),
-    // Integral(Box<Expression>, String),
+    // Integral(Box<Integral>),
     // Limit
 
     // Series
@@ -169,7 +118,7 @@ impl Expression {
     }
 
     pub fn variable(name: &str) -> Expression {
-        Expression::Variable(name.to_string())
+        Expression::Variable(Variable::new(name))
     }
 
     pub fn exponentiation(base: Expression, expo: Expression) -> Expression {
@@ -296,21 +245,6 @@ impl Expression {
     }
 }
 
-// print functions
-impl Expression {
-    /// Check wether the `Expression` can be printed as one continuous
-    fn is_single(&self) -> bool {
-        match self {
-            Expression::Variable(_)
-            | Expression::Constant(_)
-            | Expression::Function(_)
-            | Expression::Number(Numeral::Integer(_)) => true,
-            Expression::Exponentiation(exp) => exp.base.is_single() && exp.expo.is_single(),
-            _ => false,
-        }
-    }
-}
-
 impl std::fmt::Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -331,7 +265,6 @@ impl std::fmt::Display for Expression {
     }
 }
 
-// Simplification Functions
 impl Expression {
     pub fn simplify(
         &mut self,
@@ -353,14 +286,12 @@ impl Expression {
             Expression::Derivative(der) => der.simplify(explanation),
         }
     }
-}
 
-impl Expression {
     /// Returns `true` if the two `Expression` are equal and `false` otherwise
     pub fn is_equal(&self, other: &Expression) -> bool {
         match (self, other) {
             (Expression::Number(lhs), Expression::Number(rhs)) => lhs.is_equal(rhs),
-            (Expression::Variable(lhs), Expression::Variable(rhs)) => lhs == rhs,
+            (Expression::Variable(lhs), Expression::Variable(rhs)) => lhs.is_equal(rhs),
             (Expression::Constant(lhs), Expression::Constant(rhs)) => lhs.is_equal(rhs),
             (Expression::Addition(lhs), Expression::Addition(rhs)) => lhs.is_equal(rhs),
             (Expression::Subtraction(lhs), Expression::Subtraction(rhs)) => lhs.is_equal(rhs),
@@ -376,14 +307,32 @@ impl Expression {
         }
     }
 
-    // TODO Refactor to order the inside also
+    /// Check wether the `Expression` can be printed as one continuous
+    fn is_single(&self) -> bool {
+        match self {
+            Expression::Negation(negation) => negation.is_single(),
+            Expression::Number(numeral) => numeral.is_single(),
+            Expression::Variable(variable) => variable.is_single(),
+            Expression::Constant(constant) => constant.is_single(),
+            Expression::Addition(addition) => addition.is_single(),
+            Expression::Multiplication(multiplication) => multiplication.is_single(),
+            Expression::Subtraction(subtraction) => subtraction.is_single(),
+            Expression::Division(division) => division.is_single(),
+            Expression::Exponentiation(exponentiation) => exponentiation.is_single(),
+            Expression::Equality(equality) => equality.is_single(),
+            Expression::Complex(complex) => complex.is_single(),
+            Expression::Function(function) => function.is_single(),
+            Expression::Derivative(derivative) => derivative.is_single(),
+        }
+    }
+
     /// Returns `true` if the two vector are equal and `false` otherwise
-    pub fn compare_expression_vectors(lhs: &Vec<Expression>, rhs: &Vec<Expression>) -> bool {
+    pub fn compare_expression_vectors(lhs: &[Expression], rhs: &[Expression]) -> bool {
         if rhs.len() != lhs.len() {
             return false;
         }
 
-        let mut rhs = rhs.clone();
+        let mut rhs = rhs.to_owned();
 
         lhs.iter().all(|expr| {
             let pos = rhs.iter().position(|expr2| expr.is_equal(expr2));
@@ -458,18 +407,11 @@ impl Expression {
     //     }
     // }
 
-    // pub fn contains_var<T>(expr: T, variable: &str) -> bool
-    // where
-    //     T: Expr,
-    // {
-    //     expr.contains_var(variable)
-    // }
-
     pub fn contains_var(&self, variable: &str) -> bool {
         match self {
             Expression::Negation(negation) => negation.contains_var(variable),
             Expression::Number(numeral) => numeral.contains_var(variable),
-            Expression::Variable(var) => var == variable,
+            Expression::Variable(var) => var.contains_var(variable),
             Expression::Constant(constant) => constant.contains_var(variable),
             Expression::Addition(addition) => addition.contains_var(variable),
             Expression::Multiplication(multiplication) => multiplication.contains_var(variable),

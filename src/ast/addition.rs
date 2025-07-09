@@ -1,4 +1,4 @@
-use crate::{ast::Expr, explanation::FormattingObserver, utils::transform_multiplication};
+use crate::{ast::Expr, explanation::FormattingObserver, prints::PrettyPrints, utils::transform_multiplication};
 
 use super::{Expression, SimplifyError, numeral};
 
@@ -36,115 +36,95 @@ impl Expr for Addition {
     fn contains_var(&self, variable: &str) -> bool {
         self.terms.iter().any(|expr| expr.contains_var(variable))
     }
+
+    fn is_single(&self) -> bool {
+        self.terms.len() <= 1
+    }
+}
+
+impl PrettyPrints for Addition {
+   
+    fn calculate_tree(&self, indent: usize) -> String {
+        let next_indent = indent + 2;
+        let next_indent_str = " ".repeat(next_indent);
+
+        if self.terms.is_empty() {
+            "0".to_string()
+        } else if self.terms.len() == 1 {
+            self.terms[0].calculate_tree(indent)
+        } else {
+            let mut result = String::from("Addition:\n");
+            for (i, term) in self.terms.iter().enumerate() {
+                result.push_str(&format!(
+                    "{}{}{}",
+                    next_indent_str,
+                    "+ ",
+                    term.calculate_tree(next_indent)
+                ));
+                if i < self.terms.len() - 1 {
+                    result.push('\n');
+                }
+            }
+            result
+        }
+    }
     
-    // fn calculate_tree(&self, indent: usize) -> String {
-    //     let next_indent = indent + 2;
-    //     let next_indent_str = " ".repeat(next_indent);
+    fn calculate_positions(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+        position: &mut Vec<(String, (usize, usize))>,
+        prev_pos: (usize, usize),
+    ) {
+        let mut pos = prev_pos;
+                let below_height = self.get_below_height(memoization);
 
-    //     if self.terms.is_empty() {
-    //         "0".to_string()
-    //     } else if self.terms.len() == 1 {
-    //         self.terms[0].calculate_tree(indent)
-    //     } else {
-    //         let mut result = String::from("Addition:\n");
-    //         for (i, term) in self.terms.iter().enumerate() {
-    //             result.push_str(&format!(
-    //                 "{}{}{}",
-    //                 next_indent_str,
-    //                 "+ ",
-    //                 term.calculate_tree(next_indent)
-    //             ));
-    //             if i < self.terms.len() - 1 {
-    //                 result.push('\n');
-    //             }
-    //         }
-    //         result
-    //     }
-    // }
+                self.terms.iter().enumerate().for_each(|(i, x)| {
+                    let new_height = pos.0 + below_height - x.get_below_height(memoization);
+                    x.calculate_positions(memoization, position, (new_height, pos.1));
+                    pos.1 += x.get_length(memoization);
+                    if i < self.terms.len() - 1 {
+                        position.push((" ".to_string(), (pos.0 + below_height, pos.1)));
+                        pos.1 += 1;
+                        position.push(("+".to_string(), (pos.0 + below_height, pos.1)));
+                        pos.1 += 1;
+                        position.push((" ".to_string(), (pos.0 + below_height, pos.1)));
+                        pos.1 += 1;
+                    }
+                });
+    }
     
-    // fn calculate_positions(
-    //     &self,
-    //     memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
-    //     position: &mut Vec<(String, (usize, usize))>,
-    //     prev_pos: (usize, usize),
-    // ) {
-    //     let mut pos = prev_pos;
-    //             let below_height = self.get_below_height(memoization);
-
-    //             self.terms.iter().enumerate().for_each(|(i, x)| {
-    //                 let new_height = pos.0 + below_height - x.get_below_height(memoization);
-    //                 x.calculate_positions(memoization, position, (new_height, pos.1));
-    //                 pos.1 += x.get_length(memoization);
-    //                 if i < self.terms.len() - 1 {
-    //                     position.push((" ".to_string(), (pos.0 + below_height, pos.1)));
-    //                     pos.1 += 1;
-    //                     position.push(("+".to_string(), (pos.0 + below_height, pos.1)));
-    //                     pos.1 += 1;
-    //                     position.push((" ".to_string(), (pos.0 + below_height, pos.1)));
-    //                     pos.1 += 1;
-    //                 }
-    //             });
-    // }
+    fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.terms
+        .iter()
+        .map(|x| x.get_below_height(memoization))
+        .max()
+        .unwrap_or(0)
+    }
     
-    // fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
-    //     self.terms
-    //     .iter()
-    //     .map(|x| x.get_below_height(memoization))
-    //     .max()
-    //     .unwrap_or(0)
-    // }
+    fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+
+        let mut max_top_height = 0;
+                let mut max_below_height = 0;
+
+                self.terms.iter().for_each(|x| {
+                    let x_height = x.get_height(memoization);
+                    let x_below = x.get_below_height(memoization);
+
+                    max_top_height = (x_height - x_below).max(max_top_height);
+                    max_below_height = x_below.max(max_below_height);
+                });
+
+        max_top_height + max_below_height
+    }
     
-    // fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
-    //     if let Some((height, _length)) = memoization.get(self) {
-    //         if *height != 0 {
-    //             return *height;
-    //         }
-    //     }
+    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        let length = self.terms
+        .iter()
+        .map(|x| x.get_length(memoization))
+        .sum::<usize>();
 
-    //     let mut max_top_height = 0;
-    //             let mut max_below_height = 0;
-
-    //             self.terms.iter().for_each(|x| {
-    //                 let x_height = x.get_height(memoization);
-    //                 let x_below = x.get_below_height(memoization);
-
-    //                 max_top_height = (x_height - x_below).max(max_top_height);
-    //                 max_below_height = x_below.max(max_below_height);
-    //             });
-
-    //     let height =         max_top_height + max_below_height;
-
-    //     if let Some((h, _l)) = memoization.get_mut(self) {
-    //         *h = height;
-    //     } else {
-    //         memoization.insert(self.clone(), (height, 0));
-    //     }
-
-    //     height
-    // }
-    
-    // fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
-    //     if let Some((_height, length)) = memoization.get(self) {
-    //         if *length != 0 {
-    //             return *length;
-    //         }
-    //     }
-
-    //     let mut length = self.terms
-    //     .iter()
-    //     .map(|x| x.get_length(memoization))
-    //     .sum::<usize>();
-
-    //     length = self.terms.len() * 3 - 3 + length;
-
-    //     if let Some((_h, l)) = memoization.get_mut(self) {
-    //         *l = length;
-    //     } else {
-    //         memoization.insert(self.clone(), (0, length));
-    //     }
-
-    //     length
-    // }    
+        self.terms.len() * 3 - 3 + length
+    }    
 }
 
 impl std::fmt::Display for Addition {
@@ -195,7 +175,7 @@ impl Addition {
                     (a, Expression::Number(numeral::Numeral::Integer(0)))
                     | (Expression::Number(numeral::Numeral::Integer(0)), a) => {
                         if let Some(explanation) = explanation {
-                            explanation.rule_applied("Adding zero stay the same", &before, &a);
+                            explanation.rule_applied("Adding zero stay the same", &before, a);
                         }
                         result[i] = a.clone();
                         result.swap_remove(j);

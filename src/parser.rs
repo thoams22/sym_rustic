@@ -296,7 +296,7 @@ impl<'a> Parser<'a> {
         match self.current_token() {
             Some(Token::Underscore) => {
                 let var = self.parse_variable(variable)?;
-                Ok(Expression::Variable(var))
+                Ok(Expression::variable(&var))
             }
             Some(Token::Caret) | Some(Token::Divide) if variable == "d" => {
                 let position = self.position;
@@ -304,7 +304,7 @@ impl<'a> Parser<'a> {
                     Ok(derivative) => Ok(derivative),
                     Err(_) => {
                         self.position = position;
-                        Ok(Expression::Variable("d".to_string()))
+                        Ok(Expression::variable("d"))
                     }
                 }
             }
@@ -317,7 +317,7 @@ impl<'a> Parser<'a> {
                     Expression::integer(0),
                     Expression::integer(1),
                 )),
-                _ => Ok(Expression::Variable(variable)),
+                _ => Ok(Expression::variable(&variable)),
             },
         }
     }

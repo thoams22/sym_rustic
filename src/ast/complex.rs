@@ -1,6 +1,6 @@
 use crate::{
-    ast::{Expr, SimplifyError, numeral},
-    explanation::FormattingObserver,
+    ast::{numeral, Expr, SimplifyError},
+    explanation::FormattingObserver, prints::PrettyPrints,
 };
 
 use super::Expression;
@@ -44,6 +44,10 @@ impl Expr for Complex {
     fn contains_var(&self, variable: &str) -> bool {
         self.real.contains_var(variable) || self.imag.contains_var(variable)
     }
+
+    fn is_single(&self) -> bool {
+        false
+    }
 }
 
 impl std::fmt::Display for Complex {
@@ -52,12 +56,12 @@ impl std::fmt::Display for Complex {
             f,
             "{}i*{}",
             if self.real.is_equal(&Expression::integer(0)) {
-                format!("")
+                String::new()
             } else {
                 format!("{} + ", self.real)
             },
             if self.imag.is_equal(&Expression::integer(0)) {
-                format!("")
+                String::new()
             } else if self.imag.is_single() {
                 format!("{}", self.imag)
             } else {
@@ -75,5 +79,60 @@ impl Complex {
             imag: Expression::negation(self.imag),
             simplified: false,
         }
+    }
+}
+
+
+impl PrettyPrints for Complex {
+    fn calculate_tree(&self, indent: usize) -> String {
+        let next_indent = indent + 2;
+        let next_indent_str = " ".repeat(next_indent);
+        
+        format!(
+            "Complex:\n{}{}\n{}i {}",
+            next_indent_str,
+            self.real.calculate_tree(next_indent),
+            next_indent_str,
+            self.imag.calculate_tree(next_indent)
+        )
+    }
+
+    fn calculate_positions(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+        position: &mut Vec<(String, (usize, usize))>,
+        prev_pos: (usize, usize),
+    ) {
+        let mut pos = prev_pos;
+        self.real.calculate_positions(memoization, position, pos);
+        pos.1 += self.real.get_length(memoization);
+        position.push((" ".to_string(), pos));
+        pos.1 += 1;
+        position.push(("+".to_string(), pos));
+        pos.1 += 1;
+        position.push((" ".to_string(), pos));
+        pos.1 += 1;
+        self.imag.calculate_positions(memoization, position, pos);
+        pos.1 += self.imag.get_length(memoization);
+        position.push(("i".to_string(), pos));
+    }
+
+    fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self
+                .real
+                .get_below_height(memoization)
+                .max(self.imag.get_below_height(memoization))
+    }
+
+    fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.
+                real
+                .get_height(memoization)
+                .max(self.imag.get_height(memoization))
+    }
+
+    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.real.get_length(memoization) + self.imag.get_length(memoization) + 4
+
     }
 }

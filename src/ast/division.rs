@@ -1,6 +1,6 @@
 use crate::{
     ast::{complex::Complex, numeral, Expr, Expression, SimplifyError},
-    explanation::FormattingObserver,
+    explanation::FormattingObserver, prints::PrettyPrints,
 };
 
 #[derive(Debug, PartialEq, Clone, PartialOrd, Eq, Ord, Hash)]
@@ -38,6 +38,10 @@ impl Expr for Division {
     fn contains_var(&self, variable: &str) -> bool {
         self.num.contains_var(variable) || self.den.contains_var(variable)
     }
+
+    fn is_single(&self) -> bool {
+        false
+    }
 }
 
 impl std::fmt::Display for Division {
@@ -67,7 +71,7 @@ impl Division {
         explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
         let before = Expression::division(lhs.clone(), rhs.clone());
-        let result = match (lhs, rhs) {
+        match (lhs, rhs) {
             // a/0 => DivisionByZero
             (_, Expression::Number(numeral::Numeral::Integer(0))) => {
                 Err(SimplifyError::DivisionByZero)
@@ -229,8 +233,83 @@ impl Division {
                 // .simplify(explanation)
                 Ok(Expression::division(lhs, rhs))
             }
-        };
+        }
+    }
+}
 
-        result
+impl PrettyPrints for Division {
+    fn calculate_tree(&self, indent: usize) -> String {
+        let next_indent = indent + 2;
+        let next_indent_str = " ".repeat(next_indent);
+
+        format!(
+            "Division:\n{}{}\n{}/ {}",
+            next_indent_str,
+            self.num.calculate_tree(next_indent),
+            next_indent_str,
+            self.den.calculate_tree(next_indent)
+        )
+    }
+
+    fn calculate_positions(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+        position: &mut Vec<(String, (usize, usize))>,
+        prev_pos: (usize, usize),
+    ) {
+        let length = self.get_length(memoization);
+                let bottom_height = self.den.get_height(memoization);
+
+                let bottom_length = self.den.get_length(memoization);
+                let top_length = self.num.get_length(memoization);
+
+                let (span, top) = if top_length > bottom_length {
+                    ((top_length - bottom_length) / 2, false)
+                } else {
+                    ((bottom_length - top_length) / 2, true)
+                };
+
+                let mut pos = prev_pos;
+
+                if !top {
+                    pos.1 += span;
+                    self.den.calculate_positions(memoization, position, pos);
+                    pos.1 -= span;
+                } else {
+                    self.den.calculate_positions(memoization, position, pos);
+                }
+
+                pos.0 += bottom_height;
+
+                for _ in 0..length {
+                    position.push(("-".to_string(), pos));
+                    pos.1 += 1;
+                }
+
+                pos.1 -= length;
+                pos.0 += 1;
+
+                if top {
+                    pos.1 += span;
+                    self.num.calculate_positions(memoization, position, pos);
+                    pos.1 -= span;
+                } else {
+                    self.num.calculate_positions(memoization, position, pos);
+                }
+    }
+
+    fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.den.get_height(memoization)
+    }
+
+    fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.num.get_height(memoization) + self.den.get_height(memoization) + 1
+    }
+
+    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self
+                .den
+                .get_length(memoization)
+                .max(self.num.get_length(memoization))
     }
 }
