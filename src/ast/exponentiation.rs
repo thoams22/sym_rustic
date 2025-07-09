@@ -1,8 +1,66 @@
-use crate::{explanation::FormattingObserver, utils};
+use crate::{ast::{function::{Function, FunctionType}, Expr}, explanation::FormattingObserver, utils};
 
-use super::{Expression, SimplifyError, function, numeral};
+use super::{Expression, SimplifyError, numeral};
 
-impl Expression {
+
+#[derive(Debug, PartialEq, Clone, PartialOrd, Eq, Ord, Hash)]
+pub struct Exponentiation {
+    pub base: Expression,
+    pub expo: Expression,
+    pub simplified: bool,
+}
+
+// Constructor
+impl Exponentiation {
+    pub fn new(base: Expression, expo: Expression, simplified: bool) -> Self {
+        Self {
+            base,
+            expo,
+            simplified,
+        }
+    }
+}
+
+impl Expr for Exponentiation {
+    fn simplify(
+        &mut self,
+        explanation: &mut Option<Box<FormattingObserver>>,
+    ) -> Result<Expression, SimplifyError> {
+        let base = self.base.simplify(explanation)?;
+        let expo = self.expo.simplify(explanation)?;
+
+        self.simplify_exponentiation(base, expo, explanation)
+    }
+
+    fn is_equal(&self, other: &Exponentiation) -> bool {
+        self.base.is_equal(&other.base) && self.expo.is_equal(&other.expo)
+    }
+
+    fn contains_var(&self, variable: &str) -> bool {
+        self.base.contains_var(variable) || self.expo.contains_var(variable)
+    }
+}
+
+impl std::fmt::Display for Exponentiation {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{}^{}",
+            if self.base.is_single() {
+                format!("{}", self.base)
+            } else {
+                format!("({})", self.base)
+            },
+            if self.expo.is_single() {
+                format!("{}", self.expo)
+            } else {
+                format!("({})", self.expo)
+            }
+        )
+    }
+}
+
+impl Exponentiation {
     pub(crate) fn simplify_exponentiation(
         &mut self,
         lhs: Expression,
@@ -44,7 +102,7 @@ impl Expression {
             }
             // sqrt(a)^2 => a
             (
-                Expression::Function(function::Function::Sqrt, args),
+                Expression::Function(Function { name: FunctionType::Sqrt, args, simplified: _ }),
                 Expression::Number(numeral::Numeral::Integer(2)),
             ) => {
                 if let Some(explanation) = explanation {
@@ -54,7 +112,7 @@ impl Expression {
             }
             // root(x, a)^x => a
             (
-                Expression::Function(function::Function::Root, args),
+                Expression::Function(Function { name: FunctionType::Root, args, simplified: _ }),
                 Expression::Number(numeral::Numeral::Integer(x)),
             ) if args[0] == Expression::Number(numeral::Numeral::Integer(x)) => {
                 if let Some(explanation) = explanation {
@@ -63,23 +121,23 @@ impl Expression {
                 Ok(args[1].clone())
             }
             // (a^b)^c => a^(b*c)
-            (Expression::Exponentiation(base, exp), rhs) => {
+            (Expression::Exponentiation(exp), rhs) => {
                     if let Some(explanation) = explanation {
-                        explanation.rule_applied("Multiply the exponent", &before, &Expression::Exponentiation(
-                            base.clone(),
-                            Box::new(Expression::Multiplication(vec![*exp.clone(), rhs.clone()])),
+                        explanation.rule_applied("Multiply the exponent", &before, &Expression::exponentiation(
+                            exp.base.clone(),
+                            Expression::multiplication(vec![exp.expo.clone(), rhs.clone()]),
                         ));
                     }
-                    Expression::Exponentiation(
-                        base,
-                        Box::new(Expression::Multiplication(vec![*exp, rhs])),
+                    Expression::exponentiation(
+                        exp.base,
+                        Expression::multiplication(vec![exp.expo, rhs]),
                     )
                     .simplify(explanation)
             }
             // (a*b)^c => a^c*b^c
-            (Expression::Multiplication(terms), rhs) => {
-                let mut after: Expression = Expression::Multiplication( 
-                    terms
+            (Expression::Multiplication(mul), rhs) => {
+                let mut after: Expression = Expression::multiplication( 
+                    mul.terms
                     .iter()
                     .map(|term| {
                     Expression::exponentiation(term.clone(), rhs.clone())
@@ -91,14 +149,14 @@ impl Expression {
             }
             // (a + b)^n where n is a integer
             (Expression::Addition(add), Expression::Number(numeral::Numeral::Integer(n))) => {
-                let mut after = utils::multinomial_expansion(&add, n);
+                let mut after = utils::multinomial_expansion(&add.terms, n);
                 if let Some(explanation) = explanation {
                     explanation.rule_applied("Use the multinomial theoerm", &before, &after);
                 };
                 after.simplify(explanation)
             }
             // a^b => a^b
-            (lhs, rhs) => Ok(Expression::Exponentiation(Box::new(lhs), Box::new(rhs))),
+            (lhs, rhs) => Ok(Expression::Exponentiation(Box::new(Exponentiation::new(lhs, rhs, true)))),
         };
 
         result

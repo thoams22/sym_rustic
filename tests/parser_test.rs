@@ -57,7 +57,7 @@ mod tests_number {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Negation(Box::new(Expression::integer(42)))
+            Expression::negation(Expression::integer(42))
         );
     }
 
@@ -76,7 +76,7 @@ mod tests_number {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Negation(Box::new(Expression::rational(4355, 100)))
+            Expression::negation(Expression::rational(4355, 100))
         );
     }
 
@@ -118,7 +118,7 @@ mod tests_addition {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Addition(vec![Expression::integer(42), Expression::integer(42)])
+            Expression::addition(vec![Expression::integer(42), Expression::integer(42)])
         );
     }
 
@@ -129,8 +129,8 @@ mod tests_addition {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Addition(vec![
-                Expression::Addition(vec![Expression::integer(38), Expression::integer(40),]),
+            Expression::addition(vec![
+                Expression::addition(vec![Expression::integer(38), Expression::integer(40),]),
                 Expression::integer(42)
             ])
         );
@@ -143,8 +143,8 @@ mod tests_addition {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Addition(vec![
-                Expression::Addition(vec![Expression::integer(40), Expression::integer(42)]),
+            Expression::addition(vec![
+                Expression::addition(vec![Expression::integer(40), Expression::integer(42)]),
                 Expression::integer(38)
             ])
         );
@@ -157,9 +157,9 @@ mod tests_addition {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Addition(vec![
+            Expression::addition(vec![
                 Expression::integer(38),
-                Expression::Addition(vec![Expression::integer(40), Expression::integer(42)])
+                Expression::addition(vec![Expression::integer(40), Expression::integer(42)])
             ])
         );
     }
@@ -179,7 +179,7 @@ mod tests_multiplication {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![Expression::integer(42), Expression::integer(42)])
+            Expression::multiplication(vec![Expression::integer(42), Expression::integer(42)])
         );
     }
 
@@ -190,8 +190,8 @@ mod tests_multiplication {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
-                Expression::Multiplication(vec![
+            Expression::multiplication(vec![
+                Expression::multiplication(vec![
                     Expression::variable("a"),
                     Expression::variable("b"),
                 ]),
@@ -207,9 +207,9 @@ mod tests_multiplication {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
+            Expression::multiplication(vec![
                 Expression::integer(38),
-                Expression::Multiplication(vec![Expression::integer(40), Expression::integer(42)])
+                Expression::multiplication(vec![Expression::integer(40), Expression::integer(42)])
             ])
         );
     }
@@ -221,9 +221,9 @@ mod tests_multiplication {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
-                Expression::Multiplication(vec![Expression::integer(40), Expression::integer(42)]),
-                Expression::Negation(Box::new(Expression::integer(38)))
+            Expression::multiplication(vec![
+                Expression::multiplication(vec![Expression::integer(40), Expression::integer(42)]),
+                Expression::negation(Expression::integer(38))
             ])
         );
     }
@@ -235,8 +235,8 @@ mod tests_multiplication {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
-                Expression::Multiplication(vec![Expression::integer(40), Expression::integer(42)]),
+            Expression::multiplication(vec![
+                Expression::multiplication(vec![Expression::integer(40), Expression::integer(42)]),
                 Expression::integer(38)
             ])
         );
@@ -249,9 +249,9 @@ mod tests_multiplication {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
+            Expression::multiplication(vec![
                 Expression::integer(8),
-                Expression::Multiplication(vec![Expression::integer(40), Expression::integer(42)])
+                Expression::multiplication(vec![Expression::integer(40), Expression::integer(42)])
             ])
         );
     }
@@ -263,9 +263,9 @@ mod tests_multiplication {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
-                Expression::Variable("a".to_string()),
-                Expression::Multiplication(vec![Expression::integer(40), Expression::integer(42)])
+            Expression::multiplication(vec![
+                Expression::variable("a"),
+                Expression::multiplication(vec![Expression::integer(40), Expression::integer(42)])
             ])
         );
     }
@@ -277,14 +277,14 @@ mod tests_multiplication {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
-                Expression::Addition(vec![
-                    Expression::Variable("a".to_string()),
-                    Expression::Variable("b".to_string())
+            Expression::multiplication(vec![
+                Expression::addition(vec![
+                    Expression::variable("a"),
+                    Expression::variable("b")
                 ]),
-                Expression::Subtraction(
-                    Box::new(Expression::Variable("a".to_string())),
-                    Box::new(Expression::Variable("b".to_string()))
+                Expression::subtraction(
+                    Expression::variable("a"),
+                    Expression::variable("b")
                 )
             ])
         );
@@ -297,15 +297,15 @@ mod tests_multiplication {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
-                Expression::Division(
-                    Box::new(Expression::Multiplication(vec![
-                        Expression::Variable("a".to_string()),
-                        Expression::Variable("b".to_string()),
-                    ])),
-                    Box::new(Expression::Variable("c".to_string()))
+            Expression::multiplication(vec![
+                Expression::division(
+                    Expression::multiplication(vec![
+                        Expression::variable("a"),
+                        Expression::variable("b"),
+                    ]),
+                    Expression::variable("c")
                 ),
-                Expression::Variable("a".to_string())
+                Expression::variable("a")
             ])
         );
     }
@@ -318,14 +318,14 @@ mod tests_multiplication {
         assert_eq!(
             expr,
             Expression::division(
-                Expression::Multiplication(vec![
+                Expression::multiplication(vec![
                     Expression::division(
-                        Expression::Variable("a".to_string()),
-                        Expression::Variable("b".to_string()),
+                        Expression::variable("a"),
+                        Expression::variable("b"),
                     ),
-                    Expression::Variable("c".to_string())
+                    Expression::variable("c")
                 ]),
-                Expression::Variable("a".to_string())
+                Expression::variable("a")
             )
         );
     }
@@ -337,11 +337,11 @@ mod tests_multiplication {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
-                Expression::Variable("a".to_string()),
-                Expression::Multiplication(vec![
-                    Expression::Variable("b".to_string()),
-                    Expression::Variable("c".to_string())
+            Expression::multiplication(vec![
+                Expression::variable("a"),
+                Expression::multiplication(vec![
+                    Expression::variable("b"),
+                    Expression::variable("c")
                 ])
             ])
         );
@@ -354,11 +354,11 @@ mod tests_multiplication {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
-                Expression::Variable("a".to_string()),
-                Expression::Multiplication(vec![
-                    Expression::Variable("b".to_string()),
-                    Expression::Variable("c".to_string())
+            Expression::multiplication(vec![
+                Expression::variable("a"),
+                Expression::multiplication(vec![
+                    Expression::variable("b"),
+                    Expression::variable("c")
                 ])
             ])
         );
@@ -371,13 +371,13 @@ mod tests_multiplication {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
+            Expression::multiplication(vec![
                 Expression::integer(3),
-                Expression::Multiplication(vec![
-                    Expression::Variable("a".to_string()),
-                    Expression::Multiplication(vec![
-                        Expression::Variable("b".to_string()),
-                        Expression::Variable("c".to_string())
+                Expression::multiplication(vec![
+                    Expression::variable("a"),
+                    Expression::multiplication(vec![
+                        Expression::variable("b"),
+                        Expression::variable("c")
                     ])
                 ])
             ])
@@ -399,9 +399,9 @@ mod tests_division {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Division(
-                Box::new(Expression::integer(42)),
-                Box::new(Expression::integer(2))
+            Expression::division(
+                Expression::integer(42),
+                Expression::integer(2)
             )
         );
     }
@@ -413,9 +413,9 @@ mod tests_division {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Division(
-                Box::new(Expression::integer(42)),
-                Box::new(Expression::integer(2))
+            Expression::division(
+                Expression::integer(42),
+                Expression::integer(2)
             )
         );
     }
@@ -427,12 +427,12 @@ mod tests_division {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Division(
-                Box::new(Expression::Division(
-                    Box::new(Expression::Variable("a".to_string())),
-                    Box::new(Expression::Variable("b".to_string()))
-                )),
-                Box::new(Expression::Variable("c".to_string()))
+            Expression::division(
+                Expression::division(
+                    Expression::variable("a"),
+                    Expression::variable("b")
+                ),
+                Expression::variable("c")
             )
         );
     }
@@ -444,15 +444,15 @@ mod tests_division {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Division(
-                Box::new(Expression::Division(
-                    Box::new(Expression::Division(
-                        Box::new(Expression::Variable("a".to_string())),
-                        Box::new(Expression::Variable("b".to_string()))
-                    )),
-                    Box::new(Expression::Variable("c".to_string()))
-                )),
-                Box::new(Expression::Variable("d".to_string()))
+            Expression::division(
+                Expression::division(
+                    Expression::division(
+                        Expression::variable("a"),
+                        Expression::variable("b")
+                    ),
+                    Expression::variable("c")
+                ),
+                Expression::variable("d")
             )
         );
     }
@@ -464,12 +464,12 @@ mod tests_division {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Division(
-                Box::new(Expression::Variable("a".to_string())),
-                Box::new(Expression::Division(
-                    Box::new(Expression::Variable("b".to_string())),
-                    Box::new(Expression::Variable("c".to_string()))
-                ))
+            Expression::division(
+                Expression::variable("a"),
+                Expression::division(
+                    Expression::variable("b"),
+                    Expression::variable("c")
+                )
             )
         );
     }
@@ -481,9 +481,9 @@ mod tests_division {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Division(
-                Box::new(Expression::Negation(Box::new(Expression::integer(42)))),
-                Box::new(Expression::integer(2))
+            Expression::division(
+                Expression::negation(Expression::integer(42)),
+                Expression::integer(2)
             )
         );
     }
@@ -495,9 +495,9 @@ mod tests_division {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Division(
-                Box::new(Expression::integer(42)),
-                Box::new(Expression::Negation(Box::new(Expression::integer(2))))
+            Expression::division(
+                Expression::integer(42),
+                Expression::negation(Expression::integer(2))
             )
         );
     }
@@ -509,10 +509,10 @@ mod tests_division {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
-                Expression::Division(
-                    Box::new(Expression::integer(1)),
-                    Box::new(Expression::integer(3)),
+            Expression::multiplication(vec![
+                Expression::division(
+                    Expression::integer(1),
+                    Expression::integer(3),
                 ),
                 Expression::integer(4),
             ])
@@ -550,9 +550,9 @@ mod tests_exponentiations {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Exponentiation(
-                Box::new(Expression::integer(42)),
-                Box::new(Expression::integer(42))
+            Expression::exponentiation(
+                Expression::integer(42),
+                Expression::integer(42)
             )
         )
     }
@@ -564,12 +564,12 @@ mod tests_exponentiations {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Exponentiation(
-                Box::new(Expression::integer(38)),
-                Box::new(Expression::Multiplication(vec![
+            Expression::exponentiation(
+                Expression::integer(38),
+                Expression::multiplication(vec![
                     Expression::integer(40),
                     Expression::integer(42)
-                ]))
+                ])
             )
         );
     }
@@ -581,12 +581,12 @@ mod tests_exponentiations {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Exponentiation(
-                Box::new(Expression::Multiplication(vec![
+            Expression::exponentiation(
+                Expression::multiplication(vec![
                     Expression::integer(40),
                     Expression::integer(42)
-                ])),
-                Box::new(Expression::integer(38))
+                ]),
+                Expression::integer(38)
             )
         );
     }
@@ -597,12 +597,12 @@ mod tests_exponentiations {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Exponentiation(
-                Box::new(Expression::integer(42)),
-                Box::new(Expression::Exponentiation(
-                    Box::new(Expression::integer(42)),
-                    Box::new(Expression::integer(42))
-                ))
+            Expression::exponentiation(
+                Expression::integer(42),
+                Expression::exponentiation(
+                    Expression::integer(42),
+                    Expression::integer(42)
+                )
             )
         )
     }
@@ -613,12 +613,12 @@ mod tests_exponentiations {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Exponentiation(
-                Box::new(Expression::integer(42)),
-                Box::new(Expression::Exponentiation(
-                    Box::new(Expression::integer(42)),
-                    Box::new(Expression::integer(42))
-                ))
+            Expression::exponentiation(
+                Expression::integer(42),
+                Expression::exponentiation(
+                    Expression::integer(42),
+                    Expression::integer(42)
+                )
             )
         )
     }
@@ -629,12 +629,12 @@ mod tests_exponentiations {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Exponentiation(
-                Box::new(Expression::Exponentiation(
-                    Box::new(Expression::integer(42)),
-                    Box::new(Expression::integer(42))
-                )),
-                Box::new(Expression::integer(42),)
+            Expression::exponentiation(
+                Expression::exponentiation(
+                    Expression::integer(42),
+                    Expression::integer(42)
+                ),
+                Expression::integer(42)
             )
         )
     }
@@ -646,12 +646,12 @@ mod tests_exponentiations {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Exponentiation(
-                Box::new(Expression::Variable("a".to_string())),
-                Box::new(Expression::Division(
-                    Box::new(Expression::integer(1)),
-                    Box::new(Expression::integer(2))
-                ))
+            Expression::exponentiation(
+                Expression::variable("a"),
+                Expression::division(
+                    Expression::integer(1),
+                    Expression::integer(2)
+                )
             )
         )
     }
@@ -663,12 +663,12 @@ mod tests_exponentiations {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Division(
-                Box::new(Expression::Exponentiation(
-                    Box::new(Expression::Variable("a".to_string())),
-                    Box::new(Expression::integer(1))
-                )),
-                Box::new(Expression::integer(2))
+            Expression::division(
+                Expression::exponentiation(
+                    Expression::variable("a"),
+                    Expression::integer(1)
+                ),
+                Expression::integer(2)
             )
         )
     }
@@ -680,15 +680,14 @@ mod tests_literal {
     use sym_rustic::ast::Expression;
     use sym_rustic::ast::constant::Constant;
     use sym_rustic::lexer::Token;
-    use sym_rustic::parser::ParseError::InvalidVariableFormat;
-    use sym_rustic::parser::Parser;
+    use sym_rustic::parser::{ParseError, Parser};
 
     #[test]
     fn test_literal_1() {
         let tokens: Vec<Token> = lex("a");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
-        assert_eq!(expr, Expression::Variable("a".to_string()))
+        assert_eq!(expr, Expression::variable("a"))
     }
 
     #[test]
@@ -696,7 +695,7 @@ mod tests_literal {
         let tokens = lex("abc");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
-        assert_eq!(expr, Expression::Variable("abc".to_string()))
+        assert_eq!(expr, Expression::variable("abc"))
     }
 
     #[test]
@@ -704,7 +703,7 @@ mod tests_literal {
         let tokens: Vec<Token> = lex("a_1");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
-        assert_eq!(expr, Expression::Variable("a_1".to_string()))
+        assert_eq!(expr, Expression::variable("a_1"))
     }
 
     #[test]
@@ -712,7 +711,7 @@ mod tests_literal {
         let tokens: Vec<Token> = lex("a_a");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
-        assert_eq!(expr, Expression::Variable("a_a".to_string()))
+        assert_eq!(expr, Expression::variable("a_a"))
     }
 
     #[test]
@@ -720,7 +719,7 @@ mod tests_literal {
         let tokens: Vec<Token> = lex("a__a");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap_err();
-        assert_eq!(expr, InvalidVariableFormat(2))
+        assert_eq!(expr, ParseError::InvalidVariableFormat(2))
     }
 
     #[test]
@@ -728,7 +727,7 @@ mod tests_literal {
         let tokens: Vec<Token> = lex("a_a_a_b");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
-        assert_eq!(expr, Expression::Variable("a_a_a_b".to_string()))
+        assert_eq!(expr, Expression::variable("a_a_a_b"))
     }
 
     #[test]
@@ -736,7 +735,7 @@ mod tests_literal {
         let tokens: Vec<Token> = lex("a_123_12");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
-        assert_eq!(expr, Expression::Variable("a_123_12".to_string()))
+        assert_eq!(expr, Expression::variable("a_123_12"))
     }
 
     #[test]
@@ -768,7 +767,7 @@ mod tests_literal {
         let tokens: Vec<Token> = lex("E");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
-        assert_eq!(expr, Expression::Variable("E".to_string()))
+        assert_eq!(expr, Expression::variable("E"))
     }
 
     #[test]
@@ -776,7 +775,7 @@ mod tests_literal {
         let tokens: Vec<Token> = lex("e_3");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
-        assert_eq!(expr, Expression::Variable("e_3".to_string()))
+        assert_eq!(expr, Expression::variable("e_3"))
     }
 
     #[test]
@@ -784,7 +783,7 @@ mod tests_literal {
         let tokens: Vec<Token> = lex("pi_a");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
-        assert_eq!(expr, Expression::Variable("pi_a".to_string()))
+        assert_eq!(expr, Expression::variable("pi_a"))
     }
 
     #[test]
@@ -792,15 +791,14 @@ mod tests_literal {
         let tokens: Vec<Token> = lex("tau_628");
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
-        assert_eq!(expr, Expression::Variable("tau_628".to_string()))
+        assert_eq!(expr, Expression::variable("tau_628"))
     }
 }
 
 #[cfg(test)]
 mod tests_functions {
     use crate::lex;
-    use sym_rustic::ast::Expression::Function;
-    use sym_rustic::ast::{Expression, function};
+    use sym_rustic::ast::Expression;
     use sym_rustic::parser::{ParseError, Parser};
 
     #[test]
@@ -810,12 +808,11 @@ mod tests_functions {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Function(
-                function::Function::Sin,
-                vec![Expression::Addition(vec![
+            Expression::sin(
+                Expression::addition(vec![
                     Expression::integer(3),
                     Expression::integer(8)
-                ])]
+                ])
             )
         )
     }
@@ -827,9 +824,9 @@ mod tests_functions {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
-                Expression::Variable("sin".to_string()),
-                Expression::Addition(vec![Expression::integer(3), Expression::integer(8)])
+            Expression::multiplication(vec![
+                Expression::variable("sin"),
+                Expression::addition(vec![Expression::integer(3), Expression::integer(8)])
             ])
         )
     }
@@ -841,12 +838,11 @@ mod tests_functions {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Function(
-                function::Function::Log,
-                vec![
+            Expression::log(
+                
                     Expression::integer(10),
-                    Expression::Variable("a".to_string())
-                ]
+                    Expression::variable("a")
+                
             )
         )
     }
@@ -884,13 +880,13 @@ mod tests_complex {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Addition(vec![
-                Expression::Variable("a".to_string()),
-                Expression::Multiplication(vec![
-                    Expression::Variable("b".to_string()),
-                    Expression::Complex(
-                        Box::new(Expression::integer(0)),
-                        Box::new(Expression::integer(1)),
+            Expression::addition(vec![
+                Expression::variable("a"),
+                Expression::multiplication(vec![
+                    Expression::variable("b"),
+                    Expression::complex(
+                        Expression::integer(0),
+                        Expression::integer(1),
                     )
                 ])
             ])
@@ -904,14 +900,14 @@ mod tests_complex {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
-                Expression::Variable("b".to_string()),
-                Expression::Exponentiation(
-                    Box::new(Expression::Complex(
-                        Box::new(Expression::integer(0)),
-                        Box::new(Expression::integer(1)),
-                    )),
-                    Box::new(Expression::integer(5))
+            Expression::multiplication(vec![
+                Expression::variable("b"),
+                Expression::exponentiation(
+                    Expression::complex(
+                        Expression::integer(0),
+                        Expression::integer(1),
+                    ),
+                    Expression::integer(5)
                 )
             ])
         )
@@ -924,15 +920,15 @@ mod tests_complex {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Exponentiation(
-                Box::new(Expression::Multiplication(vec![
-                    Expression::Variable("b".to_string()),
-                    Expression::Complex(
-                        Box::new(Expression::integer(0)),
-                        Box::new(Expression::integer(1)),
+            Expression::exponentiation(
+                Expression::multiplication(vec![
+                    Expression::variable("b"),
+                    Expression::complex(
+                        Expression::integer(0),
+                        Expression::integer(1),
                     )
-                ])),
-                Box::new(Expression::integer(5))
+                ]),
+                Expression::integer(5)
             )
         )
     }
@@ -951,9 +947,9 @@ mod tests_equlity {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Equality(
-                Box::new(Expression::Variable("a".to_string())),
-                Box::new(Expression::Variable("b".to_string()))
+            Expression::equality(
+                Expression::variable("a"),
+                Expression::variable("b")
             )
         );
     }
@@ -965,12 +961,12 @@ mod tests_equlity {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Equality(
-                Box::new(Expression::Equality(
-                    Box::new(Expression::Variable("a".to_string())),
-                    Box::new(Expression::Variable("b".to_string()))
-                )),
-                Box::new(Expression::Variable("c".to_string()))
+            Expression::equality(
+                Expression::equality(
+                    Expression::variable("a"),
+                    Expression::variable("b")
+                ),
+                Expression::variable("c")
             )
         );
     }
@@ -989,7 +985,7 @@ mod tests_negation {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Negation(Box::new(Expression::Variable("a".to_string())))
+            Expression::negation(Expression::variable("a"))
         );
     }
 
@@ -1000,7 +996,7 @@ mod tests_negation {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Negation(Box::new(Expression::Variable("a".to_string())))
+            Expression::negation(Expression::variable("a"))
         );
     }
 
@@ -1011,11 +1007,11 @@ mod tests_negation {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Exponentiation(
-                Box::new(Expression::Negation(Box::new(Expression::Variable(
-                    "a".to_string()
-                )))),
-                Box::new(Expression::integer(2))
+            Expression::exponentiation(
+                Expression::negation(Expression::variable(
+                    "a"
+                )),
+                Expression::integer(2)
             )
         );
     }
@@ -1027,10 +1023,10 @@ mod tests_negation {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Negation(Box::new(Expression::Exponentiation(
-                Box::new(Expression::Variable("a".to_string())),
-                Box::new(Expression::integer(2))
-            )))
+            Expression::negation(Expression::exponentiation(
+                Expression::variable("a"),
+                Expression::integer(2)
+            ))
         );
     }
 
@@ -1041,9 +1037,9 @@ mod tests_negation {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Negation(Box::new(Expression::Negation(Box::new(
-                Expression::Negation(Box::new(Expression::Variable("a".to_string())))
-            ))))
+            Expression::negation(Expression::negation(
+                Expression::negation(Expression::variable("a"))
+            ))
         );
     }
 
@@ -1054,12 +1050,11 @@ mod tests_negation {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Subtraction(
-                Box::new(Expression::Variable("a".to_string())),
-                Box::new(Expression::Negation(Box::new(Expression::Variable(
-                    "b".to_string()
-                ))))
-            )
+            Expression::subtraction(
+                Expression::variable("a"),
+                Expression::negation(Expression::variable(
+                    "b"
+                )))
         );
     }
 
@@ -1070,10 +1065,10 @@ mod tests_negation {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Negation(Box::new(Expression::Addition(vec![
-                Expression::Variable("a".to_string()),
-                Expression::Variable("b".to_string())
-            ])))
+            Expression::negation(Expression::addition(vec![
+                Expression::variable("a"),
+                Expression::variable("b")
+            ]))
         );
     }
 
@@ -1084,13 +1079,13 @@ mod tests_negation {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Negation(Box::new(Expression::Exponentiation(
-                Box::new(Expression::Addition(vec![
-                    Expression::Variable("a".to_string()),
-                    Expression::Variable("b".to_string())
-                ])),
-                Box::new(Expression::integer(2))
-            )))
+            Expression::negation(Expression::exponentiation(
+                Expression::addition(vec![
+                    Expression::variable("a"),
+                    Expression::variable("b")
+                ]),
+                Expression::integer(2)
+            ))
         );
     }
 
@@ -1101,16 +1096,16 @@ mod tests_negation {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Multiplication(vec![
-                Expression::Negation(Box::new(Expression::Negation(Box::new(
-                    Expression::Exponentiation(
-                        Box::new(Expression::Multiplication(vec![
-                            Expression::Variable("a".to_string()),
-                            Expression::Variable("b".to_string())
-                        ])),
-                        Box::new(Expression::integer(2))
+            Expression::multiplication(vec![
+                Expression::negation(Expression::negation(
+                    Expression::exponentiation(
+                        Expression::multiplication(vec![
+                            Expression::variable("a"),
+                            Expression::variable("b")
+                        ]),
+                        Expression::integer(2)
                     )
-                )))),
+                )),
                 Expression::integer(8)
             ])
         );
@@ -1123,15 +1118,15 @@ mod tests_negation {
         let expr = parser.parse_expression().unwrap();
         assert_eq!(
             expr,
-            Expression::Negation(Box::new(Expression::Negation(Box::new(
-                Expression::Exponentiation(
-                    Box::new(Expression::Addition(vec![
-                        Expression::Variable("a".to_string()),
-                        Expression::Variable("b".to_string())
-                    ])),
-                    Box::new(Expression::integer(2))
+            Expression::negation(Expression::negation(
+                Expression::exponentiation(
+                    Expression::addition(vec![
+                        Expression::variable("a"),
+                        Expression::variable("b")
+                    ]),
+                    Expression::integer(2)
                 )
-            ))))
+            ))
         );
     }
 }
@@ -1154,12 +1149,12 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Derivative(
-            Box::new(Expression::Exponentiation(
-                Box::new(Expression::Variable("x".to_string())),
-                Box::new(Expression::integer(2))
-            )),
-            "x".to_string(),
+        assert!(expr.is_equal(&Expression::derivative(
+            Expression::exponentiation(
+                Expression::variable("x"),
+                Expression::integer(2)
+            ),
+            "x",
             1
         )))
     }
@@ -1170,12 +1165,12 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Derivative(
-            Box::new(Expression::Exponentiation(
-                Box::new(Expression::Variable("x".to_string())),
-                Box::new(Expression::integer(2))
-            )),
-            "x".to_string(),
+        assert!(expr.is_equal(&Expression::derivative(
+            Expression::exponentiation(
+                Expression::variable("x"),
+                Expression::integer(2)
+            ),
+            "x",
             1
         )))
     }
@@ -1186,12 +1181,12 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Derivative(
-            Box::new(Expression::Exponentiation(
-                Box::new(Expression::Variable("x".to_string())),
-                Box::new(Expression::integer(2))
-            )),
-            "x".to_string(),
+        assert!(expr.is_equal(&Expression::derivative(
+            Expression::exponentiation(
+                Expression::variable("x"),
+                Expression::integer(2)
+            ),
+            "x",
             2
         )))
     }
@@ -1202,15 +1197,15 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Derivative(
-            Box::new(Expression::Addition(vec![
-                Expression::Exponentiation(
-                    Box::new(Expression::Variable("x".to_string())),
-                    Box::new(Expression::integer(2))
+        assert!(expr.is_equal(&Expression::derivative(
+            Expression::addition(vec![
+                Expression::exponentiation(
+                    Expression::variable("x"),
+                    Expression::integer(2)
                 ),
                 Expression::integer(2)
-            ])),
-            "x_1".to_string(),
+            ]),
+            "x_1",
             4
         )))
     }
@@ -1221,10 +1216,10 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Addition(vec![
-            Expression::Exponentiation(
-                Box::new(Expression::Variable("d".to_string())),
-                Box::new(Expression::integer(Into::<u64>::into(u32::MAX) + 2))
+        assert!(expr.is_equal(&Expression::addition(vec![
+            Expression::exponentiation(
+                Expression::variable("d"),
+                Expression::integer(Into::<u64>::into(u32::MAX) + 2)
             ),
             Expression::integer(2)
         ])))
@@ -1236,9 +1231,9 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Exponentiation(
-            Box::new(Expression::Variable("d".to_string())),
-            Box::new(Expression::Variable("a".to_string()))
+        assert!(expr.is_equal(&Expression::exponentiation(
+            Expression::variable("d"),
+            Expression::variable("a")
         )))
     }
 
@@ -1248,12 +1243,12 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Division(
-            Box::new(Expression::Exponentiation(
-                Box::new(Expression::Variable("d".to_string())),
-                Box::new(Expression::integer(3))
-            )),
-            Box::new(Expression::integer(2))
+        assert!(expr.is_equal(&Expression::division(
+            Expression::exponentiation(
+                Expression::variable("d"),
+                Expression::integer(3)
+            ),
+            Expression::integer(2)
         )))
     }
     #[test]
@@ -1262,12 +1257,12 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Division(
-            Box::new(Expression::Exponentiation(
-                Box::new(Expression::Variable("d".to_string())),
-                Box::new(Expression::integer(2))
-            )),
-            Box::new(Expression::Variable("a".to_string()))
+        assert!(expr.is_equal(&Expression::division(
+            Expression::exponentiation(
+                Expression::variable("d"),
+                Expression::integer(2)
+            ),
+            Expression::variable("a")
         )))
     }
     #[test]
@@ -1276,15 +1271,15 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Division(
-            Box::new(Expression::Exponentiation(
-                Box::new(Expression::Variable("d".to_string())),
-                Box::new(Expression::integer(2))
-            )),
-            Box::new(Expression::Multiplication(vec![
-                Expression::Variable("d".to_string()),
+        assert!(expr.is_equal(&Expression::division(
+            Expression::exponentiation(
+                Expression::variable("d"),
+                Expression::integer(2)
+            ),
+            Expression::multiplication(vec![
+                Expression::variable("d"),
                 Expression::integer(1)
-            ])),
+            ]),
         )))
     }
 
@@ -1294,13 +1289,13 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Addition(vec![
-            Expression::Division(
-                Box::new(Expression::Exponentiation(
-                    Box::new(Expression::Variable("d".to_string())),
-                    Box::new(Expression::integer(2))
-                )),
-                Box::new(Expression::Variable("d".to_string()))
+        assert!(expr.is_equal(&Expression::addition(vec![
+            Expression::division(
+                Expression::exponentiation(
+                    Expression::variable("d"),
+                    Expression::integer(2)
+                ),
+                Expression::variable("d")
             ),
             Expression::integer(1)
         ])))
@@ -1312,16 +1307,16 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Multiplication(vec![
-            Expression::Division(
-                Box::new(Expression::Exponentiation(
-                    Box::new(Expression::Variable("d".to_string())),
-                    Box::new(Expression::integer(2))
-                )),
-                Box::new(Expression::Multiplication(vec![
-                    Expression::Variable("d".to_string()),
-                    Expression::Variable("a".to_string()),
-                ]))
+        assert!(expr.is_equal(&Expression::multiplication(vec![
+            Expression::division(
+                Expression::exponentiation(
+                    Expression::variable("d"),
+                    Expression::integer(2)
+                ),
+                Expression::multiplication(vec![
+                    Expression::variable("d"),
+                    Expression::variable("a"),
+                ])
             ),
             Expression::integer(2)
         ])))
@@ -1333,18 +1328,18 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Division(
-            Box::new(Expression::Exponentiation(
-                Box::new(Expression::Variable("d".to_string())),
-                Box::new(Expression::integer(2))
-            )),
-            Box::new(Expression::Multiplication(vec![
-                Expression::Variable("d".to_string()),
-                Expression::Exponentiation(
-                    Box::new(Expression::Variable("x".to_string())),
-                    Box::new(Expression::integer(3))
+        assert!(expr.is_equal(&Expression::division(
+            Expression::exponentiation(
+                Expression::variable("d"),
+                Expression::integer(2)
+            ),
+            Expression::multiplication(vec![
+                Expression::variable("d"),
+                Expression::exponentiation(
+                    Expression::variable("x"),
+                    Expression::integer(3)
                 )
-            ])),
+            ]),
         )))
     }
 
@@ -1363,9 +1358,9 @@ mod tests_derivative {
         let mut parser = Parser::new(&tokens);
         let expr = parser.parse_expression().unwrap();
 
-        assert!(expr.is_equal(&Expression::Derivative(
-            Box::new(Expression::integer(3)),
-            "x".to_string(),
+        assert!(expr.is_equal(&Expression::derivative(
+            Expression::integer(3),
+            "x",
             2
         )))
     }

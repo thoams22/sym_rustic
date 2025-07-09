@@ -98,23 +98,23 @@ mod tests {
         assert!(
             multinomial_expansion(
                 &vec![
-                    Expression::Variable("a".to_string()),
-                    Expression::Variable("b".to_string()),
+                    Expression::variable("a"),
+                    Expression::variable("b"),
                 ],
                 2
-            ).simplify(&mut None).unwrap().is_equal(&Expression::Addition(vec![
-                Expression::Multiplication(vec![
+            ).simplify(&mut None).unwrap().is_equal(&Expression::addition(vec![
+                Expression::multiplication(vec![
                     Expression::integer(2),
-                    Expression::Variable("a".to_string()),
-                    Expression::Variable("b".to_string()),
+                    Expression::variable("a"),
+                    Expression::variable("b"),
                 ]),
-                Expression::Exponentiation(
-                    Box::new(Expression::Variable("a".to_string())),
-                    Box::new(Expression::integer(2))
+                Expression::exponentiation(
+                    Expression::variable("a"),
+                    Expression::integer(2)
                 ),
-                Expression::Exponentiation(
-                    Box::new(Expression::Variable("b".to_string())),
-                    Box::new(Expression::integer(2))
+                Expression::exponentiation(
+                    Expression::variable("b"),
+                    Expression::integer(2)
                 ),
             ]))
         );
@@ -122,33 +122,33 @@ mod tests {
         assert!(
             multinomial_expansion(
                 &(vec![
-                    Expression::Variable("a".to_string()),
-                    Expression::Variable("b".to_string()),
+                    Expression::variable("a"),
+                    Expression::variable("b"),
                 ]),
                 3   
-            ).simplify(&mut None).unwrap().is_equal(&Expression::Addition(vec![
-                Expression::Exponentiation(
-                    Box::new(Expression::Variable("a".to_string())),
-                    Box::new(Expression::integer(3))
+            ).simplify(&mut None).unwrap().is_equal(&Expression::addition(vec![
+                Expression::exponentiation(
+                    Expression::variable("a"),
+                    Expression::integer(3)
                 ),
-                Expression::Exponentiation(
-                    Box::new(Expression::Variable("b".to_string())),
-                    Box::new(Expression::integer(3))
+                Expression::exponentiation(
+                    Expression::variable("b"),
+                    Expression::integer(3)
                 ),
-                Expression::Multiplication(vec![
+                Expression::multiplication(vec![
                     Expression::integer(3),
-                    Expression::Exponentiation(
-                        Box::new(Expression::Variable("a".to_string())),
-                        Box::new(Expression::integer(2))
+                    Expression::exponentiation(
+                        Expression::variable("a"),
+                        Expression::integer(2)
                     ),
-                    Expression::Variable("b".to_string()),
+                    Expression::variable("b"),
                 ]),
-                Expression::Multiplication(vec![
+                Expression::multiplication(vec![
                     Expression::integer(3),
-                    Expression::Variable("a".to_string()),
-                    Expression::Exponentiation(
-                        Box::new(Expression::Variable("b".to_string())),
-                        Box::new(Expression::integer(2))
+                    Expression::variable("a"),
+                    Expression::exponentiation(
+                        Expression::variable("b"),
+                        Expression::integer(2)
                     ),
                 ]),
             ]))
@@ -156,55 +156,55 @@ mod tests {
 
         println!("{}", multinomial_expansion(
             &vec![
-                Expression::Variable("a".to_string()),
-                Expression::Variable("b".to_string()),
+                Expression::variable("a"),
+                Expression::variable("b"),
             ],
             4
         ).simplify(&mut None).unwrap().calculate_tree(0));
 
         print!("{}", 
-        Expression::Addition(vec![
-            Expression::Exponentiation(
-                Box::new(Expression::Variable("a".to_string())),
-                Box::new(Expression::integer(4))
+        Expression::addition(vec![
+            Expression::exponentiation(
+                Expression::variable("a"),
+                Expression::integer(4)
             ),
-            Expression::Exponentiation(
-                Box::new(Expression::Variable("b".to_string())),
-                Box::new(Expression::integer(4))
+            Expression::exponentiation(
+                Expression::variable("b"),
+                Expression::integer(4)
             ),
-            Expression::Multiplication(vec![
+            Expression::multiplication(vec![
                 Expression::integer(6),
-                Expression::Exponentiation(
-                    Box::new(Expression::Variable("a".to_string())),
-                    Box::new(Expression::integer(2))
+                Expression::exponentiation(
+                    Expression::variable("a"),
+                    Expression::integer(2)
                 ),
-                Expression::Exponentiation(
-                    Box::new(Expression::Variable("b".to_string())),
-                    Box::new(Expression::integer(2))
+                Expression::exponentiation(
+                    Expression::variable("b"),
+                    Expression::integer(2)
                 ),
             ]),
-            Expression::Multiplication(vec![
+            Expression::multiplication(vec![
                 Expression::integer(4),
-                Expression::Exponentiation(
-                    Box::new(Expression::Variable("a".to_string())),
-                    Box::new(Expression::integer(3))
+                Expression::exponentiation(
+                    Expression::variable("a"),
+                    Expression::integer(3)
                 ),
-                Expression::Variable("b".to_string()),
+                Expression::variable("b"),
             ]),
-            Expression::Multiplication(vec![
+            Expression::multiplication(vec![
                 Expression::integer(4),
-                Expression::Exponentiation(
-                    Box::new(Expression::Variable("b".to_string())),
-                    Box::new(Expression::integer(3))
+                Expression::exponentiation(
+                    Expression::variable("b"),
+                    Expression::integer(3)
                 ),
-                Expression::Variable("a".to_string()),
+                Expression::variable("a"),
             ]),
         ]).calculate_tree(0));
 
         // multinomial_expansion(
         //     &vec![
-        //         Expression::Variable("a".to_string()),
-        //         Expression::Variable("b".to_string()),
+        //         Expression::variable("a"),
+        //         Expression::variable("b"),
         //     ],
         //     4
         // ).simplify(&mut None).unwrap().print_console();
@@ -212,45 +212,45 @@ mod tests {
         assert!(
             multinomial_expansion(
                 &vec![
-                    Expression::Variable("a".to_string()),
-                    Expression::Variable("b".to_string()),
+                    Expression::variable("a"),
+                    Expression::variable("b"),
                 ],
                 4
-            ).simplify(&mut None).unwrap().is_equal(&Expression::Addition(vec![
-                Expression::Exponentiation(
-                    Box::new(Expression::Variable("a".to_string())),
-                    Box::new(Expression::integer(4))
+            ).simplify(&mut None).unwrap().is_equal(&Expression::addition(vec![
+                Expression::exponentiation(
+                    Expression::variable("a"),
+                    Expression::integer(4)
                 ),
-                Expression::Exponentiation(
-                    Box::new(Expression::Variable("b".to_string())),
-                    Box::new(Expression::integer(4))
+                Expression::exponentiation(
+                    Expression::variable("b"),
+                    Expression::integer(4)
                 ),
-                Expression::Multiplication(vec![
+                Expression::multiplication(vec![
                     Expression::integer(6),
-                    Expression::Exponentiation(
-                        Box::new(Expression::Variable("a".to_string())),
-                        Box::new(Expression::integer(2))
+                    Expression::exponentiation(
+                        Expression::variable("a"),
+                        Expression::integer(2)
                     ),
-                    Expression::Exponentiation(
-                        Box::new(Expression::Variable("b".to_string())),
-                        Box::new(Expression::integer(2))
+                    Expression::exponentiation(
+                        Expression::variable("b"),
+                        Expression::integer(2)
                     ),
                 ]),
-                Expression::Multiplication(vec![
+                Expression::multiplication(vec![
                     Expression::integer(4),
-                    Expression::Exponentiation(
-                        Box::new(Expression::Variable("a".to_string())),
-                        Box::new(Expression::integer(3))
+                    Expression::exponentiation(
+                        Expression::variable("a"),
+                        Expression::integer(3)
                     ),
-                    Expression::Variable("b".to_string()),
+                    Expression::variable("b"),
                 ]),
-                Expression::Multiplication(vec![
+                Expression::multiplication(vec![
                     Expression::integer(4),
-                    Expression::Exponentiation(
-                        Box::new(Expression::Variable("b".to_string())),
-                        Box::new(Expression::integer(3))
+                    Expression::exponentiation(
+                        Expression::variable("b"),
+                        Expression::integer(3)
                     ),
-                    Expression::Variable("a".to_string()),
+                    Expression::variable("a"),
                 ]),
             ]))
         );

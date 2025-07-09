@@ -1,6 +1,5 @@
 use crate::{
-    explanation::{FormattingObserver},
-    utils,
+    ast::Expr, explanation::FormattingObserver, utils
 };
 
 use super::{Expression, SimplifyError};
@@ -26,11 +25,11 @@ impl Numeral {
     }
 }
 
-impl Numeral {
-    pub fn simplify(
+impl Expr for Numeral {
+    fn simplify(
         &mut self,
         explanation: &mut Option<Box<FormattingObserver>>,
-    ) -> Result<Numeral, SimplifyError> {
+    ) -> Result<Expression, SimplifyError> {
         if let Numeral::Rational(n, d) = self {
             let gcd = utils::gcd(*n, *d);
             let result = if gcd == 1 {
@@ -76,12 +75,28 @@ impl Numeral {
                 Ok(Numeral::Rational(*n / gcd, *d / gcd))
             }?;
 
-            Ok(result)
+            Ok(Expression::Number(result))
         } else {
-            Ok(*self)
+            Ok(Expression::Number(*self))
         }
     }
+    
+    fn is_equal(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Numeral::Integer(a), Numeral::Integer(b)) => a == b,
+            (Numeral::Rational(a, b), Numeral::Rational(c, d)) => {
+                a == c && b == d
+            }
+            _ => false,
+    }}
+    
+    fn contains_var(&self, _variable: &str) -> bool {
+        false
+    }
+    
+}
 
+impl Numeral {
     pub fn add(&self, other: &Numeral) -> Numeral {
         match (self, other) {
             (Numeral::Integer(n), Numeral::Integer(m)) => Numeral::Integer(n + m),

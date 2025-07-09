@@ -1,95 +1,194 @@
-use crate::{explanation::FormattingObserver, utils::transform_multiplication};
+use crate::{ast::Expr, explanation::FormattingObserver, utils::transform_multiplication};
 
 use super::{Expression, SimplifyError, numeral};
 
-impl Expression {
-    pub(crate) fn simplify_addition(
+#[derive(Debug, PartialEq, Clone, PartialOrd, Eq, Ord, Hash)]
+pub struct Addition {
+    pub terms: Vec<Expression>,
+    pub simplified: bool,
+}
+
+impl Addition {
+    pub fn new(terms: Vec<Expression>, simplified: bool) -> Self {
+        Self {
+            terms,
+            simplified
+        }
+    }
+}
+
+impl Expr for Addition {
+    fn simplify(
+        &mut self,
+        explanation: &mut Option<Box<FormattingObserver>>,
+    ) -> Result<Expression, SimplifyError> {
+        let simplified_terms: Vec<Expression> = self.terms
+        .iter_mut()
+        .map(|term| term.simplify(explanation))
+        .collect::<Result<Vec<Expression>, _>>()?;
+    self.simplify_addition(simplified_terms, explanation)
+    }
+
+    fn is_equal(&self, other: &Addition) -> bool {
+        Expression::compare_expression_vectors(&self.terms, &other.terms)
+    }
+
+    fn contains_var(&self, variable: &str) -> bool {
+        self.terms.iter().any(|expr| expr.contains_var(variable))
+    }
+    
+    // fn calculate_tree(&self, indent: usize) -> String {
+    //     let next_indent = indent + 2;
+    //     let next_indent_str = " ".repeat(next_indent);
+
+    //     if self.terms.is_empty() {
+    //         "0".to_string()
+    //     } else if self.terms.len() == 1 {
+    //         self.terms[0].calculate_tree(indent)
+    //     } else {
+    //         let mut result = String::from("Addition:\n");
+    //         for (i, term) in self.terms.iter().enumerate() {
+    //             result.push_str(&format!(
+    //                 "{}{}{}",
+    //                 next_indent_str,
+    //                 "+ ",
+    //                 term.calculate_tree(next_indent)
+    //             ));
+    //             if i < self.terms.len() - 1 {
+    //                 result.push('\n');
+    //             }
+    //         }
+    //         result
+    //     }
+    // }
+    
+    // fn calculate_positions(
+    //     &self,
+    //     memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+    //     position: &mut Vec<(String, (usize, usize))>,
+    //     prev_pos: (usize, usize),
+    // ) {
+    //     let mut pos = prev_pos;
+    //             let below_height = self.get_below_height(memoization);
+
+    //             self.terms.iter().enumerate().for_each(|(i, x)| {
+    //                 let new_height = pos.0 + below_height - x.get_below_height(memoization);
+    //                 x.calculate_positions(memoization, position, (new_height, pos.1));
+    //                 pos.1 += x.get_length(memoization);
+    //                 if i < self.terms.len() - 1 {
+    //                     position.push((" ".to_string(), (pos.0 + below_height, pos.1)));
+    //                     pos.1 += 1;
+    //                     position.push(("+".to_string(), (pos.0 + below_height, pos.1)));
+    //                     pos.1 += 1;
+    //                     position.push((" ".to_string(), (pos.0 + below_height, pos.1)));
+    //                     pos.1 += 1;
+    //                 }
+    //             });
+    // }
+    
+    // fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+    //     self.terms
+    //     .iter()
+    //     .map(|x| x.get_below_height(memoization))
+    //     .max()
+    //     .unwrap_or(0)
+    // }
+    
+    // fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+    //     if let Some((height, _length)) = memoization.get(self) {
+    //         if *height != 0 {
+    //             return *height;
+    //         }
+    //     }
+
+    //     let mut max_top_height = 0;
+    //             let mut max_below_height = 0;
+
+    //             self.terms.iter().for_each(|x| {
+    //                 let x_height = x.get_height(memoization);
+    //                 let x_below = x.get_below_height(memoization);
+
+    //                 max_top_height = (x_height - x_below).max(max_top_height);
+    //                 max_below_height = x_below.max(max_below_height);
+    //             });
+
+    //     let height =         max_top_height + max_below_height;
+
+    //     if let Some((h, _l)) = memoization.get_mut(self) {
+    //         *h = height;
+    //     } else {
+    //         memoization.insert(self.clone(), (height, 0));
+    //     }
+
+    //     height
+    // }
+    
+    // fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+    //     if let Some((_height, length)) = memoization.get(self) {
+    //         if *length != 0 {
+    //             return *length;
+    //         }
+    //     }
+
+    //     let mut length = self.terms
+    //     .iter()
+    //     .map(|x| x.get_length(memoization))
+    //     .sum::<usize>();
+
+    //     length = self.terms.len() * 3 - 3 + length;
+
+    //     if let Some((_h, l)) = memoization.get_mut(self) {
+    //         *l = length;
+    //     } else {
+    //         memoization.insert(self.clone(), (0, length));
+    //     }
+
+    //     length
+    // }    
+}
+
+impl std::fmt::Display for Addition {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let terms: Vec<String> = self.terms
+        .iter()
+        .map(|term| {
+            if term.is_single() {
+                term.to_string()
+            } else {
+                format!("({})", term)
+            }
+        })
+        .collect();
+    write!(f, "{}", terms.join(" + "))
+    }
+}
+
+impl Addition {
+    pub fn simplify_addition(
         &self,
         terms: Vec<Expression>,
         explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
-        let before: Expression = Expression::Addition(terms.clone());
+        let before: Expression = Expression::addition(terms.clone());
 
         if let Some(explanation) = explanation {
             explanation.step_started(&before);
         }
 
         let mut result = terms;
-        // let mut sum: u64 = 0;
-        // let mut neg: bool = false;
-
-        // for term in terms {
-        //     match term {
-        //         Expression::Number(numeral::Numeral::Integer(n)) => {
-        //             if neg && n > sum {
-        //                 sum = n - sum;
-        //                 neg = false;
-        //             } else if n == sum && neg {
-        //                 sum = 0;
-        //                 neg = false;
-        //             } else if neg {
-        //                 sum -= n;
-        //             } else {
-        //                 sum += n;
-        //             }
-        //         }
-        //         Expression::Negation(inner) => {
-        //             if let Expression::Number(numeral::Numeral::Integer(a)) = *inner {
-        //                 if a > sum && !neg {
-        //                     sum = a - sum;
-        //                     neg = true;
-        //                 } else if a == sum && !neg {
-        //                     sum = 0;
-        //                     neg = false;
-        //                 } else if neg {
-        //                     sum += a;
-        //                 } else {
-        //                     sum -= a;
-        //                 }
-        //             } else {
-        //                 result.push(Expression::Negation(inner))
-        //             }
-        //         }
-        //         Expression::Addition(inner_terms) => result.extend(inner_terms),
-        //         _ => result.push(term),
-        //     }
-        // }
-
-        // if sum != 0 {
-        //         if neg {
-        //             let after = Expression::negation(Expression::integer(sum));
-        //             if let Some(explanation) = explanation {
-        //                 explanation.rule_applied("Add numbers ", &before, &after);
-        //             }
-        //             result.push(after)
-        //         } else {
-        //             let after = Expression::integer(sum);
-        //             if let Some(explanation) = explanation {
-        //                 explanation.rule_applied("Add numbers ", &before, &after);
-        //             }
-        //             result.push(after)
-        //         }
-        // } else if result.is_empty() {
-        //     if let Some(explanation) = explanation {
-        //         let after = Expression::Number(numeral::Numeral::Integer(0));
-        //         explanation.rule_applied("Add numbers to 0", &before, &after);
-        //     }
-
-        //     return Ok(Expression::integer(0));
-        // }
 
         let mut i: usize = 0;
         while i < result.len() {
             let mut j: usize = i + 1;
             while j < result.len() {
-                let before = Expression::Addition(result.clone());
+                let before = Expression::addition(result.clone());
                 match (&result[i], &result[j]) {
                     (Expression::Addition(add), _) => {
-                        result.extend(add.clone());
+                        result.extend(add.terms.clone());
                         result.swap_remove(i);
                     }
                     (_, Expression::Addition(add)) => {
-                        result.extend(add.clone());
+                        result.extend(add.terms.clone());
                         result.swap_remove(j);
                     }
                     // a + 0 => a
@@ -112,8 +211,8 @@ impl Expression {
                     }
                     // a + a => 2a
                     (a, b) if a.is_equal(b) => {
-                        let mut after = Expression::Multiplication(vec![
-                            Expression::Number(numeral::Numeral::Integer(2)),
+                        let mut after = Expression::multiplication(vec![
+                            Expression::integer(2),
                             result[i].clone(),
                         ]);
                         if let Some(explanation) = explanation {
@@ -126,7 +225,7 @@ impl Expression {
                     // -a + b => c
                     (Expression::Number(a), Expression::Negation(b))
                     | (Expression::Negation(b), Expression::Number(a)) => {
-                        if let Expression::Number(inner_b) = **b {
+                        if let Expression::Number(inner_b) = b.term {
                             let after = a.sub(&inner_b);
                             if let Some(explanation) = explanation {
                                 explanation.rule_applied("Add numbers", &before, &after);
@@ -142,15 +241,15 @@ impl Expression {
                     // -aX + bX => (- a + b)X
                     // -aX - bX => -(a + b)X
                     (
-                        Expression::Multiplication(lhs_terms),
-                        Expression::Multiplication(rhs_terms),
+                        Expression::Multiplication(lhs_mul),
+                        Expression::Multiplication(rhs_mul),
                     ) => {
                         let (lhs_neg, lhs_coeff, lhs) =
-                            transform_multiplication(lhs_terms.to_vec());
+                            transform_multiplication(lhs_mul.terms.to_vec());
                         let (rhs_neg, rhs_coeff, mut rhs) =
-                            transform_multiplication(rhs_terms.to_vec());
+                            transform_multiplication(rhs_mul.terms.to_vec());
 
-                        if Self::compare_expression_vectors(&lhs, &rhs) {
+                        if Expression::compare_expression_vectors(&lhs, &rhs) {
                             rhs.push(match (lhs_coeff, rhs_coeff) {
                                 // -aX - bX => -(a + b)X
                                 (a, b) if rhs_neg && lhs_neg => {
@@ -175,7 +274,7 @@ impl Expression {
                                 // aX + bX => (a + b)X
                                 _ => Expression::integer(lhs_coeff + rhs_coeff),
                             });
-                            let mut after = Expression::Multiplication(rhs);
+                            let mut after = Expression::multiplication(rhs);
                             if let Some(explanation) = explanation {
                                 explanation.rule_applied("Add similar expression", &before, &after);
                             }
@@ -188,7 +287,7 @@ impl Expression {
                     // a - a => 0
                     // -a + a => 0
                     (a, Expression::Negation(b)) | (Expression::Negation(b), a)
-                        if a.is_equal(b) =>
+                        if a.is_equal(&b.term) =>
                     {
                         result.swap_remove(j);
                         result.swap_remove(i);
@@ -202,8 +301,8 @@ impl Expression {
                         }
                     }
 
-                    (a, Expression::Multiplication(terms)) => {
-                        let reduced = Self::reduce_add_mult(terms, a);
+                    (a, Expression::Multiplication(mul)) => {
+                        let reduced = Expression::reduce_add_mult(&mul.terms, a);
                         if let Some((terms_neg, expr_neg, expr, coeff)) = reduced {
                             // -a - Xa
                             let coeff_mult = if terms_neg && expr_neg {
@@ -230,7 +329,7 @@ impl Expression {
                                 Expression::integer(coeff + 1)
                             };
                             let mut after =
-                                Expression::Multiplication(vec![coeff_mult, expr.clone()]);
+                                Expression::multiplication(vec![coeff_mult, expr.clone()]);
                             if let Some(explanation) = explanation {
                                 explanation.rule_applied("Add similar expression", &before, &after);
                             }
@@ -240,8 +339,8 @@ impl Expression {
                             j += 1;
                         }
                     }
-                    (Expression::Multiplication(terms), a) => {
-                        let reduced = Self::reduce_add_mult(terms, a);
+                    (Expression::Multiplication(mul), a) => {
+                        let reduced = Expression::reduce_add_mult(&mul.terms, a);
                         if let Some((terms_neg, expr_neg, expr, coeff)) = reduced {
                             // -Xa - a
                             let coeff_mult = if terms_neg && expr_neg {
@@ -268,7 +367,7 @@ impl Expression {
                                 Expression::integer(coeff + 1)
                             };
                             let mut after =
-                                Expression::Multiplication(vec![coeff_mult, expr.clone()]);
+                                Expression::multiplication(vec![coeff_mult, expr.clone()]);
                             if let Some(explanation) = explanation {
                                 explanation.rule_applied("Add similar expression", &before, &after);
                             }
@@ -279,10 +378,10 @@ impl Expression {
                         }
                     }
                     // a + bi + c + di => (a + c) + (b + d)i
-                    (Expression::Complex(a, b), Expression::Complex(c, d)) => {
+                    (Expression::Complex(lhs), Expression::Complex(rhs)) => {
                         let mut after = Expression::complex(
-                            Expression::Addition(vec![*a.clone(), *c.clone()]),
-                            Expression::Addition(vec![*b.clone(), *d.clone()]),
+                            Expression::addition(vec![lhs.real.clone(), rhs.real.clone()]),
+                            Expression::addition(vec![lhs.imag.clone(), rhs.imag.clone()]),
                         );
                         if let Some(explanation) = explanation {
                             explanation.rule_applied("Add complex expression", &before, &after);
@@ -291,13 +390,13 @@ impl Expression {
                         result.swap_remove(j);
                     }
                     // a + c + di => (a + c) + di
-                    (a, Expression::Complex(c, d)) | (Expression::Complex(c, d), a) => {
-                        let mut after = if c.is_equal(&Expression::integer(0)) {
-                            Expression::complex(a.clone(), *d.clone())
+                    (a, Expression::Complex(comp)) | (Expression::Complex(comp), a) => {
+                        let mut after = if comp.real.is_equal(&Expression::integer(0)) {
+                            Expression::complex(a.clone(), comp.imag.clone())
                         } else {
                             Expression::complex(
-                                Expression::Addition(vec![a.clone(), *c.clone()]),
-                                *d.clone(),
+                                Expression::addition(vec![a.clone(), comp.real.clone()]),
+                                comp.imag.clone(),
                             )
                         };
                         // if let Some(explanation) = explanation {
@@ -314,13 +413,13 @@ impl Expression {
                         }
                     }
                     // a/b + c/d => (ad + bc)/(bd)
-                    (Expression::Division(a, b), Expression::Division(c, d)) => {
-                        let mut after = Expression::Division(
-                            Box::new(Expression::Addition(vec![
-                                Expression::Multiplication(vec![*a.clone(), *d.clone()]),
-                                Expression::Multiplication(vec![*c.clone(), *b.clone()]),
-                            ])),
-                            Box::new(Expression::Multiplication(vec![*b.clone(), *d.clone()])),
+                    (Expression::Division(lhs), Expression::Division(rhs)) => {
+                        let mut after = Expression::division(
+                            Expression::addition(vec![
+                                Expression::multiplication(vec![lhs.num.clone(), rhs.den.clone()]),
+                                Expression::multiplication(vec![lhs.den.clone(), rhs.num.clone()]),
+                            ]),
+                            Expression::multiplication(vec![lhs.den.clone(), rhs.den.clone()]),
                         );
                         if let Some(explanation) = explanation {
                             explanation.rule_applied("Add two fraction", &before, &after);
@@ -329,10 +428,10 @@ impl Expression {
                         result.swap_remove(j);
                     }
                     // a + c/d => (ad + c)/(d)
-                    (a, Expression::Division(c, d)) | (Expression::Division(c, d), a) => {
-                        let mut after = Expression::Division(
-                            Box::new(Expression::Addition(vec![a.clone(), *c.clone()])),
-                            d.clone(),
+                    (a, Expression::Division(div)) | (Expression::Division(div), a) => {
+                        let mut after = Expression::division(
+                            Expression::addition(vec![a.clone(), div.num.clone()]),
+                            div.den.clone(),
                         );
                         if let Some(explanation) = explanation {
                             explanation.rule_applied("Add with a fraction", &before, &after);
@@ -353,58 +452,11 @@ impl Expression {
             }
             res
         } else {
-            let result = Expression::Addition(result);
+            let result = Expression::addition(result);
             if let Some(explanation) = explanation {
                 explanation.step_completed(&result);
             }
             result
         })
-    }
-
-    /// Transform a `&[Expression]` representing an `Expression::Multiplication` and an Expression into a `Option<tuple>` representing
-    /// the Expression in common, if each one is negative and the coefficient between them
-    ///
-    /// (a_negative, terms_negative, common_expr, coeff)
-    fn reduce_add_mult<'b>(
-        terms: &[Expression],
-        a: &'b Expression,
-    ) -> Option<(bool, bool, &'b Expression, u64)> {
-        let mut coeff = 1;
-        let mut terms_neg = false;
-
-        let (expr_neg, expr): (bool, &Expression) = if let Expression::Negation(expr) = a {
-            (true, expr)
-        } else {
-            (false, a)
-        };
-
-        let equal = terms.iter().all(|term| {
-            if term.is_equal(expr) {
-                true
-            } else {
-                match term {
-                    Expression::Negation(inner) => {
-                        if let Expression::Number(numeral::Numeral::Integer(b)) = **inner {
-                            coeff *= b;
-                            terms_neg = !terms_neg;
-                            true
-                        } else {
-                            inner.is_equal(expr)
-                        }
-                    }
-                    Expression::Number(numeral::Numeral::Integer(b)) => {
-                        coeff *= b;
-                        true
-                    }
-                    _ => false,
-                }
-            }
-        });
-
-        if equal {
-            Some((terms_neg, expr_neg, expr, coeff))
-        } else {
-            None
-        }
     }
 }
