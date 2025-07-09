@@ -1,8 +1,81 @@
 use std::vec;
 
-use crate::explanation::FormattingObserver;
+use crate::{ast::Expr, explanation::FormattingObserver, prints::PrettyPrints};
 
-use super::{Expression, SimplifyError, constant::Constant, function::Function};
+use super::{Expression, SimplifyError, constant::Constant, function::FunctionType};
+
+#[derive(Debug, PartialEq, Clone, PartialOrd, Eq, Ord, Hash)]
+pub struct Derivative {
+    pub term: Expression,
+    pub variable: String,
+    pub order: u32,
+    pub simplified: bool,
+}
+
+// Constructor
+impl Derivative {
+    pub fn new(term: Expression, variable: String, order: u32, simplified: bool) -> Self {
+        Self {
+            term,
+            variable,
+            order,
+            simplified,
+        }
+    }
+}
+
+impl Expr for Derivative {
+    fn simplify(
+        &mut self,
+        explanation: &mut Option<Box<FormattingObserver>>,
+    ) -> Result<Expression, SimplifyError> {
+        self.term.simplify(explanation)?
+            .differentiate_n(&self.variable, self.order, explanation)
+    }
+
+    fn is_equal(&self, other: &Derivative) -> bool {
+        self.order == other.order
+            && self.variable == other.variable
+            && self.term.is_equal(&self.term)
+    }
+
+    fn contains_var(&self, variable: &str) -> bool {
+        self.term.contains_var(variable)
+    }
+
+    fn is_single(&self) -> bool {
+        false
+    }
+}
+
+impl std::fmt::Display for Derivative {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "d{}/d{}{} {}",
+            if self.order != 1 {
+                format!("^{}", self.order)
+            } else {
+                "".to_string()
+            },
+            if self.variable.len() != 1 {
+                format!("({})", self.variable)
+            } else {
+                self.variable.to_owned()
+            },
+            if self.order != 1 {
+                format!("^{}", self.order)
+            } else {
+                "".to_string()
+            },
+            if self.term.is_single() {
+                format!("{}", self.term)
+            } else {
+                format!("({})", self.term)
+            }
+        )
+    }
+}
 
 impl Expression {
     pub fn differentiate_n(
@@ -19,7 +92,7 @@ impl Expression {
 
         if let Some(explanation) = explanation {
             if order != 1 {
-                explanation.open_explaination(format!("We take {order} derivative"));
+                explanation.open_explaination(format!("We take {} derivative", order));
             }
         }
 
@@ -29,6 +102,7 @@ impl Expression {
                     explanation.open_explaination(format!("{} derivative", i + 1));
                 }
             }
+            dbg!(&expr);
             expr = expr.differentiate(variable, explanation)?;
         }
         expr.simplify(explanation)
@@ -46,17 +120,17 @@ impl Expression {
                 if let Some(explanation) = explanation {
                     explanation.rule_applied("Derivative of a number is zero", &before, &after);
                 }
-                Ok(after)
+                return Ok(after)
             }
             Expression::Constant(_) => {
                 let after = Expression::integer(0);
                 if let Some(explanation) = explanation {
                     explanation.rule_applied("Derivative of a constant is zero", &before, &after);
                 }
-                Ok(after)
+                return Ok(after)
             }
-            Expression::Variable(v) => {
-                if v == variable {
+            Expression::Variable(var) => {
+                return  if var.name == variable {
                     let after = Expression::integer(1);
                     if let Some(explanation) = explanation {
                         explanation.rule_applied(
@@ -78,10 +152,13 @@ impl Expression {
                     Ok(after)
                 }
             }
-            Expression::Negation(expr) => {
+            Expression::Negation(neg) => {
                 if let Some(explanation) = explanation {
-                    let after =
-                        Expression::negation(Expression::derivative(*expr.clone(), variable, 1));
+                    let after = Expression::negation(Expression::derivative(
+                        neg.term.clone(),
+                        variable,
+                        1,
+                    ));
                     explanation.rule_applied(
                         "The negative constant is highlighted",
                         &before,
@@ -90,13 +167,13 @@ impl Expression {
                 }
 
                 Ok(Expression::negation(
-                    expr.differentiate(variable, explanation)?,
+                    neg.term.differentiate(variable, explanation)?,
                 ))
             }
-            Expression::Addition(exprs) => {
+            Expression::Addition(add) => {
                 if let Some(explanation) = explanation {
-                    let after = Expression::Addition(
-                        exprs
+                    let after = Expression::addition(
+                        add.terms
                             .iter()
                             .map(|expr| Expression::derivative(expr.clone(), variable, 1))
                             .collect(),
@@ -107,18 +184,18 @@ impl Expression {
                         &after,
                     );
                 }
-                Ok(Expression::Addition(
-                    exprs
+                Ok(Expression::addition(
+                    add.terms
                         .iter_mut()
                         .map(|expr| expr.differentiate(variable, explanation))
                         .collect::<Result<Vec<Expression>, _>>()?,
                 ))
             }
-            Expression::Subtraction(expr1, expr2) => {
+            Expression::Subtraction(sub) => {
                 if let Some(explanation) = explanation {
                     let after = Expression::subtraction(
-                        Expression::derivative(*expr1.clone(), variable, 1),
-                        Expression::derivative(*expr2.clone(), variable, 1),
+                        Expression::derivative(sub.left.clone(), variable, 1),
+                        Expression::derivative(sub.right.clone(), variable, 1),
                     );
                     explanation.rule_applied(
                         "Derivative of sum is given by\n(f - g)' => f' - g'",
@@ -127,27 +204,27 @@ impl Expression {
                     );
                 }
                 Ok(Expression::subtraction(
-                    expr1.differentiate(variable, explanation)?,
-                    expr2.differentiate(variable, explanation)?,
+                    sub.left.differentiate(variable, explanation)?,
+                    sub.right.differentiate(variable, explanation)?,
                 ))
             }
-            Expression::Multiplication(exprs) => {
-                let mut first = exprs[0].clone();
-                if exprs.len() > 1 {
+            Expression::Multiplication(mul) => {
+                let mut first = mul.terms[0].clone();
+                if mul.terms.len() > 1 {
                     if let Some(explanation) = explanation {
-                        if let Some(rest_expr) = exprs.get(1..) {
-                            let after = Expression::Addition(vec![
-                                Expression::Multiplication(vec![
+                        if let Some(rest_expr) = mul.terms.get(1..) {
+                            let after = Expression::addition(vec![
+                                Expression::multiplication(vec![
                                     first.clone(),
                                     Expression::derivative(
-                                        Expression::Multiplication(rest_expr.to_vec()),
+                                        Expression::multiplication(rest_expr.to_vec()),
                                         variable,
                                         1,
                                     ),
                                 ]),
-                                Expression::Multiplication(vec![
+                                Expression::multiplication(vec![
                                     Expression::derivative(first.clone(), variable, 1),
-                                    Expression::Multiplication(rest_expr.to_vec()),
+                                    Expression::multiplication(rest_expr.to_vec()),
                                 ]),
                             ]);
                             explanation.rule_applied(
@@ -157,15 +234,15 @@ impl Expression {
                             );
                         }
                     }
-                    if let Some(rest_expr) = exprs.get(1..) {
-                        let mut rest = Expression::Multiplication(rest_expr.to_vec());
+                    if let Some(rest_expr) = mul.terms.get(1..) {
+                        let mut rest = Expression::multiplication(rest_expr.to_vec());
 
                         let d_first = first.differentiate(variable, explanation)?;
                         let d_rest = rest.differentiate(variable, explanation)?;
 
-                        Ok(Expression::Addition(vec![
-                            Expression::Multiplication(vec![first, d_rest]),
-                            Expression::Multiplication(vec![d_first, rest]),
+                        Ok(Expression::addition(vec![
+                            Expression::multiplication(vec![first, d_rest]),
+                            Expression::multiplication(vec![d_first, rest]),
                         ]))
                     } else {
                         first.differentiate(variable, explanation)
@@ -174,20 +251,20 @@ impl Expression {
                     first.differentiate(variable, explanation)
                 }
             }
-            Expression::Division(num, den) => {
+            Expression::Division(div) => {
                 if let Some(explanation) = explanation {
                     let after = Expression::division(
                         Expression::subtraction(
-                            Expression::Multiplication(vec![
-                                Expression::derivative(*num.clone(), variable, 1),
-                                *den.clone(),
+                            Expression::multiplication(vec![
+                                Expression::derivative(div.num.clone(), variable, 1),
+                                div.den.clone(),
                             ]),
-                            Expression::Multiplication(vec![
-                                *num.clone(),
-                                Expression::derivative(*den.clone(), variable, 1),
+                            Expression::multiplication(vec![
+                                div.num.clone(),
+                                Expression::derivative(div.den.clone(), variable, 1),
                             ]),
                         ),
-                        Expression::exponentiation(*den.clone(), Expression::integer(2)),
+                        Expression::exponentiation(div.den.clone(), Expression::integer(2)),
                     );
                     explanation.rule_applied(
                         "Derivative of product is given by\n(f/g)' => (f'*g - f*g')/g^2",
@@ -195,27 +272,30 @@ impl Expression {
                         &after,
                     );
                 }
-                let df = num.differentiate(variable, explanation)?;
-                let dg = den.differentiate(variable, explanation)?;
+                let df = div.num.differentiate(variable, explanation)?;
+                let dg = div.den.differentiate(variable, explanation)?;
 
                 Ok(Expression::division(
                     Expression::subtraction(
-                        Expression::Multiplication(vec![df, *den.clone()]),
-                        Expression::Multiplication(vec![*num.clone(), dg]),
+                        Expression::multiplication(vec![df, div.den.clone()]),
+                        Expression::multiplication(vec![div.num.clone(), dg]),
                     ),
-                    Expression::exponentiation(*den.clone(), Expression::integer(2)),
+                    Expression::exponentiation(div.den.clone(), Expression::integer(2)),
                 ))
             }
-            Expression::Exponentiation(base, exp) => {
-                match (base.contains_var(variable), exp.contains_var(variable)) {
+            Expression::Exponentiation(exp) => {
+                match (
+                    exp.base.contains_var(variable),
+                    exp.expo.contains_var(variable),
+                ) {
                     // f^g => e^(g*ln(f)) and after it should be => (g * ln(f))' * e^(g*ln(f)) => f^g * (g' * ln(f) + g * f'/f)
                     (true, true) => {
                         let after = Expression::derivative(
                             Expression::exponentiation(
                                 Expression::Constant(Constant::E),
-                                Expression::Multiplication(vec![
-                                    *exp.clone(),
-                                    Expression::ln(*base.clone()),
+                                Expression::multiplication(vec![
+                                    exp.expo.clone(),
+                                    Expression::ln(exp.base.clone()),
                                 ]),
                             ),
                             variable,
@@ -228,11 +308,11 @@ impl Expression {
                     }
                     // f^a => a * f^(a-1)
                     (true, false) => {
-                        let after = Expression::Multiplication(vec![
-                            *exp.clone(),
+                        let after = Expression::multiplication(vec![
+                            exp.expo.clone(),
                             Expression::exponentiation(
-                                *base.clone(),
-                                Expression::subtraction(*exp.clone(), Expression::integer(1)),
+                                exp.base.clone(),
+                                Expression::subtraction(exp.expo.clone(), Expression::integer(1)),
                             ),
                         ]);
                         if let Some(explanation) = explanation {
@@ -246,12 +326,11 @@ impl Expression {
                     }
                     // a^f => e^(f*ln(a)) => (f * ln(a))' * e^(f*ln(a)) => f' * ln(a) * a^f
                     (false, true) => {
-                        if let Expression::Constant(Constant::E) = **base {
-                            let after = 
-                                Expression::Multiplication(vec![
-                                    Expression::Exponentiation(base.clone(), exp.clone()),
-                                    Expression::derivative(*exp.clone(), variable, 1),
-                                ]);
+                        if let Expression::Constant(Constant::E) = exp.base {
+                            let after = Expression::multiplication(vec![
+                                Expression::exponentiation(exp.base.clone(), exp.expo.clone()),
+                                Expression::derivative(exp.expo.clone(), variable, 1),
+                            ]);
                             if let Some(explanation) = explanation {
                                 explanation.rule_applied(
                                     "Derivative of exponentiation is given by\n(e^f)' => e^f * f'",
@@ -262,14 +341,10 @@ impl Expression {
                             Ok(after)
                         } else {
                             let after = Expression::derivative(
-                                Expression::Multiplication(vec![
-                                    Expression::Exponentiation(base.clone(), exp.clone()),
-                                    Expression::ln(*base.clone()),
-                                    Expression::Derivative(
-                                        Box::new(*exp.clone()),
-                                        variable.to_string(),
-                                        1,
-                                    ),
+                                Expression::multiplication(vec![
+                                    Expression::exponentiation(exp.base.clone(), exp.expo.clone()),
+                                    Expression::ln(exp.base.clone()),
+                                    Expression::derivative(exp.expo.clone(), variable, 1),
                                 ]),
                                 variable,
                                 1,
@@ -277,10 +352,10 @@ impl Expression {
                             if let Some(explanation) = explanation {
                                 explanation.rule_applied("Derivative of exponentiation is given by\n(a^f)' => e^(f*ln(a)) * f' * ln(a)", &before, &after);
                             }
-                            Ok(Expression::Multiplication(vec![
-                                Expression::Exponentiation(base.clone(), exp.clone()),
-                                Expression::ln(*base.clone()),
-                                Expression::derivative(*exp.clone(), variable, 1),
+                            Ok(Expression::multiplication(vec![
+                                Expression::exponentiation(exp.base.clone(), exp.expo.clone()),
+                                Expression::ln(exp.base.clone()),
+                                Expression::derivative(exp.expo.clone(), variable, 1),
                             ]))
                         }
                     }
@@ -297,16 +372,16 @@ impl Expression {
                     }
                 }
             }
-            Expression::Function(func, args) => {
-                Self::differentiate_function(func, args, variable, explanation)
+            Expression::Function(fun) => {
+                Self::differentiate_function(&fun.name, &fun.args, variable, explanation)
             }
-            Expression::Equality(_lhs, _rhs) => Err(SimplifyError::Unsupported),
-            Expression::Derivative(expr, variable, order) => {
+            Expression::Equality(_equ) => Err(SimplifyError::Unsupported),
+            Expression::Derivative(der) => {
                 if let Some(explanation) = explanation {
                     let after = Expression::derivative(
-                        Expression::derivative(*expr.clone(), variable, *order),
+                        Expression::derivative(der.term.clone(), variable, der.order),
                         variable,
-                        *order,
+                        der.order,
                     );
                     explanation.rule_applied(
                         "Derivative of a derivative is given by is f'' => (f')'",
@@ -314,10 +389,10 @@ impl Expression {
                         &after,
                     );
                 }
-                let expr_diff = expr.differentiate(variable, explanation)?;
-                Ok(Expression::derivative(expr_diff, variable, *order))
+                let expr_diff = der.term.differentiate(variable, explanation)?;
+                Ok(Expression::derivative(expr_diff, variable, der.order))
             }
-            Expression::Complex(_lhs, _rhs) => {
+            Expression::Complex(_com) => {
                 // TODO
                 Err(SimplifyError::Unsupported)
             }
@@ -327,32 +402,26 @@ impl Expression {
     }
 
     fn differentiate_function(
-        func: &Function,
-        args: &Vec<Expression>,
+        func: &FunctionType,
+        args: &[Expression],
         variable: &str,
         explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
         let before = Expression::derivative(
-            Expression::Function(func.clone(), args.clone()),
+            Expression::function(func.clone(), args.to_owned()),
             variable,
             1,
         );
         let mut result = match func {
             // sin(f) => f' * cos(f)
-            Function::Sin => {
+            FunctionType::Sin => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using sin(f)' => f' * cos(f)",
-                        Expression::Multiplication(vec![
-                            Expression::Function(Function::Cos, args.clone()),
-                            expr,
-                        ]),
+                        Expression::multiplication(vec![Expression::cos(args[0].clone()), expr]),
                     )
                 } else {
-                    (
-                        "using sin(x)' => cos(x)",
-                        Expression::Function(Function::Cos, args.clone()),
-                    )
+                    ("using sin(x)' => cos(x)", Expression::cos(args[0].clone()))
                 };
                 if let Some(exp) = explanation {
                     exp.rule_applied(rule, &before, &after);
@@ -360,25 +429,19 @@ impl Expression {
                 after
             }
             // cos(f) => -f' * sin(f)
-            Function::Cos => {
+            FunctionType::Cos => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using cos(f)' => f' * -sin(f)",
-                        Expression::Multiplication(vec![
-                            Expression::Negation(Box::new(Expression::Function(
-                                Function::Sin,
-                                args.clone(),
-                            ))),
+                        Expression::multiplication(vec![
+                            Expression::negation(Expression::sin(args[0].clone())),
                             expr,
                         ]),
                     )
                 } else {
                     (
                         "using cos(x)' => -sin(x)",
-                        Expression::Negation(Box::new(Expression::Function(
-                            Function::Sin,
-                            args.clone(),
-                        ))),
+                        Expression::negation(Expression::sin(args[0].clone())),
                     )
                 };
                 if let Some(exp) = explanation {
@@ -387,17 +450,17 @@ impl Expression {
                 after
             }
             // tan(f) => f' * 1/cos^2(f)
-            Function::Tan => {
+            FunctionType::Tan => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using tan(f)' => f' * 1/cos^2(f)",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(Expression::Exponentiation(
-                                    Box::new(Expression::Function(Function::Cos, args.clone())),
-                                    Box::new(Expression::integer(2)),
-                                )),
+                        Expression::multiplication(vec![
+                            Expression::division(
+                                Expression::integer(1),
+                                Expression::exponentiation(
+                                    Expression::cos(args[0].clone()),
+                                    Expression::integer(2),
+                                ),
                             ),
                             expr,
                         ]),
@@ -405,12 +468,12 @@ impl Expression {
                 } else {
                     (
                         "using tan(x)' => 1/cos^2(x)",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Exponentiation(
-                                Box::new(Expression::Function(Function::Cos, args.clone())),
-                                Box::new(Expression::integer(2)),
-                            )),
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::exponentiation(
+                                Expression::cos(args[0].clone()),
+                                Expression::integer(2),
+                            ),
                         ),
                     )
                 };
@@ -420,22 +483,19 @@ impl Expression {
                 after
             }
             // asin(f) => f' * 1/sqrt(1-f^2)
-            Function::Asin => {
+            FunctionType::Asin => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using asin(f)' => f' * 1/sqrt(1-f^2)",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(Expression::Function(
-                                    Function::Sqrt,
-                                    vec![Expression::Subtraction(
-                                        Box::new(Expression::integer(1)),
-                                        Box::new(Expression::Exponentiation(
-                                            Box::new(args[0].clone()),
-                                            Box::new(Expression::integer(2)),
-                                        )),
-                                    )],
+                        Expression::multiplication(vec![
+                            Expression::division(
+                                Expression::integer(1),
+                                Expression::sqrt(Expression::subtraction(
+                                    Expression::integer(1),
+                                    Expression::exponentiation(
+                                        args[0].clone(),
+                                        Expression::integer(2),
+                                    ),
                                 )),
                             ),
                             expr,
@@ -444,17 +504,11 @@ impl Expression {
                 } else {
                     (
                         "using asin(x)' => 1/sqrt(1-x^2)",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Function(
-                                Function::Sqrt,
-                                vec![Expression::Subtraction(
-                                    Box::new(Expression::integer(1)),
-                                    Box::new(Expression::Exponentiation(
-                                        Box::new(args[0].clone()),
-                                        Box::new(Expression::integer(2)),
-                                    )),
-                                )],
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::sqrt(Expression::subtraction(
+                                Expression::integer(1),
+                                Expression::exponentiation(args[0].clone(), Expression::integer(2)),
                             )),
                         ),
                     )
@@ -465,41 +519,32 @@ impl Expression {
                 after
             }
             // acos(f) => -f' * 1/sqrt(1-f^2)
-            Function::Acos => {
+            FunctionType::Acos => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using acos(f)' => -f' * 1/sqrt(1-f^2)",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(Expression::Function(
-                                    Function::Sqrt,
-                                    vec![Expression::Subtraction(
-                                        Box::new(Expression::integer(1)),
-                                        Box::new(Expression::Exponentiation(
-                                            Box::new(args[0].clone()),
-                                            Box::new(Expression::integer(2)),
-                                        )),
-                                    )],
+                        Expression::multiplication(vec![
+                            Expression::division(
+                                Expression::integer(1),
+                                Expression::sqrt(Expression::subtraction(
+                                    Expression::integer(1),
+                                    Expression::exponentiation(
+                                        args[0].clone(),
+                                        Expression::integer(2),
+                                    ),
                                 )),
                             ),
-                            Expression::Negation(Box::new(expr)),
+                            Expression::negation(expr),
                         ]),
                     )
                 } else {
                     (
                         "using acos(x)' => -1/sqrt(1-x^2)",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Function(
-                                Function::Sqrt,
-                                vec![Expression::Subtraction(
-                                    Box::new(Expression::integer(1)),
-                                    Box::new(Expression::Exponentiation(
-                                        Box::new(args[0].clone()),
-                                        Box::new(Expression::integer(2)),
-                                    )),
-                                )],
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::sqrt(Expression::subtraction(
+                                Expression::integer(1),
+                                Expression::exponentiation(args[0].clone(), Expression::integer(2)),
                             )),
                         ),
                     )
@@ -510,20 +555,20 @@ impl Expression {
                 after
             }
             // atan(f) => f' * 1/(1+f^2)
-            Function::Atan => {
+            FunctionType::Atan => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using atan(f)' => f' * 1/(1+f^2)",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(Expression::Addition(vec![
+                        Expression::multiplication(vec![
+                            Expression::division(
+                                Expression::integer(1),
+                                Expression::addition(vec![
                                     Expression::integer(1),
-                                    Expression::Exponentiation(
-                                        Box::new(args[0].clone()),
-                                        Box::new(Expression::integer(2)),
+                                    Expression::exponentiation(
+                                        args[0].clone(),
+                                        Expression::integer(2),
                                     ),
-                                ])),
+                                ]),
                             ),
                             expr,
                         ]),
@@ -531,18 +576,12 @@ impl Expression {
                 } else {
                     (
                         "using atan(x)' => 1/(1+x^2)",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Function(
-                                Function::Sqrt,
-                                vec![Expression::Addition(vec![
-                                    Expression::integer(1),
-                                    Expression::Exponentiation(
-                                        Box::new(args[0].clone()),
-                                        Box::new(Expression::integer(2)),
-                                    ),
-                                ])],
-                            )),
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::addition(vec![
+                                Expression::integer(1),
+                                Expression::exponentiation(args[0].clone(), Expression::integer(2)),
+                            ]),
                         ),
                     )
                 };
@@ -552,19 +591,16 @@ impl Expression {
                 after
             }
             // sinh(f) => f' * cosh(f)
-            Function::Sinh => {
+            FunctionType::Sinh => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using sinh(f)' => f' * cosh(f)",
-                        Expression::Multiplication(vec![
-                            Expression::Function(Function::Cosh, args.clone()),
-                            expr,
-                        ]),
+                        Expression::multiplication(vec![Expression::cosh(args[0].clone()), expr]),
                     )
                 } else {
                     (
                         "using sinh(x)' => cosh(x)",
-                        Expression::Function(Function::Cosh, args.clone()),
+                        Expression::cosh(args[0].clone()),
                     )
                 };
                 if let Some(exp) = explanation {
@@ -573,19 +609,16 @@ impl Expression {
                 after
             }
             // cosh(f) => f' * sinh(f)
-            Function::Cosh => {
+            FunctionType::Cosh => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using cosh(f)' => f' * sinh(f)",
-                        Expression::Multiplication(vec![
-                            Expression::Function(Function::Sinh, args.clone()),
-                            expr,
-                        ]),
+                        Expression::multiplication(vec![Expression::sinh(args[0].clone()), expr]),
                     )
                 } else {
                     (
                         "using cosh(x)' => sinh(x)",
-                        Expression::Function(Function::Sinh, args.clone()),
+                        Expression::sinh(args[0].clone()),
                     )
                 };
                 if let Some(exp) = explanation {
@@ -594,17 +627,17 @@ impl Expression {
                 after
             }
             // tanh(f) => f' * 1/cosh^2(f)
-            Function::Tanh => {
+            FunctionType::Tanh => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using tanh(f)' => f' * 1/cosh^2(f)",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(Expression::Exponentiation(
-                                    Box::new(Expression::Function(Function::Cosh, args.clone())),
-                                    Box::new(Expression::integer(2)),
-                                )),
+                        Expression::multiplication(vec![
+                            Expression::division(
+                                Expression::integer(1),
+                                Expression::exponentiation(
+                                    Expression::cosh(args[0].clone()),
+                                    Expression::integer(2),
+                                ),
                             ),
                             expr,
                         ]),
@@ -612,12 +645,12 @@ impl Expression {
                 } else {
                     (
                         "using tanh(x)' => 1/cosh^2(x)",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Exponentiation(
-                                Box::new(Expression::Function(Function::Cosh, args.clone())),
-                                Box::new(Expression::integer(2)),
-                            )),
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::exponentiation(
+                                Expression::cosh(args[0].clone()),
+                                Expression::integer(2),
+                            ),
                         ),
                     )
                 };
@@ -627,23 +660,20 @@ impl Expression {
                 after
             }
             // asinh(f) => f' * 1/sqrt(1+f^2)
-            Function::Asinh => {
+            FunctionType::Asinh => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using asinh(f)' => f' * 1/sqrt(1+f^2)",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(Expression::Function(
-                                    Function::Sqrt,
-                                    vec![Expression::Addition(vec![
-                                        Expression::integer(1),
-                                        Expression::Exponentiation(
-                                            Box::new(args[0].clone()),
-                                            Box::new(Expression::integer(2)),
-                                        ),
-                                    ])],
-                                )),
+                        Expression::multiplication(vec![
+                            Expression::division(
+                                Expression::integer(1),
+                                Expression::sqrt(Expression::addition(vec![
+                                    Expression::integer(1),
+                                    Expression::exponentiation(
+                                        args[0].clone(),
+                                        Expression::integer(2),
+                                    ),
+                                ])),
                             ),
                             expr,
                         ]),
@@ -651,18 +681,12 @@ impl Expression {
                 } else {
                     (
                         "using asinh(x)' => 1/sqrt(1+x^2)",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Function(
-                                Function::Sqrt,
-                                vec![Expression::Addition(vec![
-                                    Expression::integer(1),
-                                    Expression::Exponentiation(
-                                        Box::new(args[0].clone()),
-                                        Box::new(Expression::integer(2)),
-                                    ),
-                                ])],
-                            )),
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::sqrt(Expression::addition(vec![
+                                Expression::integer(1),
+                                Expression::exponentiation(args[0].clone(), Expression::integer(2)),
+                            ])),
                         ),
                     )
                 };
@@ -672,22 +696,19 @@ impl Expression {
                 after
             }
             // acosh(f) => f' * 1/sqrt(f^2-1)
-            Function::Acosh => {
+            FunctionType::Acosh => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using acosh(f)' => f' * 1/sqrt(f^2-1)",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(Expression::Function(
-                                    Function::Sqrt,
-                                    vec![Expression::Subtraction(
-                                        Box::new(Expression::Exponentiation(
-                                            Box::new(args[0].clone()),
-                                            Box::new(Expression::integer(2)),
-                                        )),
-                                        Box::new(Expression::integer(1)),
-                                    )],
+                        Expression::multiplication(vec![
+                            Expression::division(
+                                Expression::integer(1),
+                                Expression::sqrt(Expression::subtraction(
+                                    Expression::exponentiation(
+                                        args[0].clone(),
+                                        Expression::integer(2),
+                                    ),
+                                    Expression::integer(1),
                                 )),
                             ),
                             expr,
@@ -696,17 +717,11 @@ impl Expression {
                 } else {
                     (
                         "using acosh(x)' => 1/sqrt(x^2-1)",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Function(
-                                Function::Sqrt,
-                                vec![Expression::Subtraction(
-                                    Box::new(Expression::Exponentiation(
-                                        Box::new(args[0].clone()),
-                                        Box::new(Expression::integer(2)),
-                                    )),
-                                    Box::new(Expression::integer(1)),
-                                )],
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::sqrt(Expression::subtraction(
+                                Expression::exponentiation(args[0].clone(), Expression::integer(2)),
+                                Expression::integer(1),
                             )),
                         ),
                     )
@@ -717,20 +732,20 @@ impl Expression {
                 after
             }
             // atanh(f) => f' * 1/(1-f^2)
-            Function::Atanh => {
+            FunctionType::Atanh => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using atanh(f)' => f' * 1/(1-f^2)",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(Expression::Subtraction(
-                                    Box::new(Expression::integer(1)),
-                                    Box::new(Expression::Exponentiation(
-                                        Box::new(args[0].clone()),
-                                        Box::new(Expression::integer(2)),
-                                    )),
-                                )),
+                        Expression::multiplication(vec![
+                            Expression::division(
+                                Expression::integer(1),
+                                Expression::subtraction(
+                                    Expression::integer(1),
+                                    Expression::exponentiation(
+                                        args[0].clone(),
+                                        Expression::integer(2),
+                                    ),
+                                ),
                             ),
                             expr,
                         ]),
@@ -738,18 +753,12 @@ impl Expression {
                 } else {
                     (
                         "using atanh(x)' => 1/(1-x^2)",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Function(
-                                Function::Sqrt,
-                                vec![Expression::Subtraction(
-                                    Box::new(Expression::integer(1)),
-                                    Box::new(Expression::Exponentiation(
-                                        Box::new(args[0].clone()),
-                                        Box::new(Expression::integer(2)),
-                                    )),
-                                )],
-                            )),
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::subtraction(
+                                Expression::integer(1),
+                                Expression::exponentiation(args[0].clone(), Expression::integer(2)),
+                            ),
                         ),
                     )
                 };
@@ -759,17 +768,17 @@ impl Expression {
                 after
             }
             // sqrt(f) => f' * 1/(2*sqrt(f))
-            Function::Sqrt => {
+            FunctionType::Sqrt => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using sqrt(f)' => f' * 1/(2*sqrt(f))",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(Expression::Multiplication(vec![
-                                    Expression::Function(Function::Sqrt, vec![args[0].clone()]),
+                        Expression::multiplication(vec![
+                            Expression::division(
+                                Expression::integer(1),
+                                Expression::multiplication(vec![
+                                    Expression::sqrt(args[0].clone()),
                                     Expression::integer(2),
-                                ])),
+                                ]),
                             ),
                             expr,
                         ]),
@@ -777,12 +786,12 @@ impl Expression {
                 } else {
                     (
                         "using sqrt(x)' => 1/(2*sqrt(x))",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Multiplication(vec![
-                                Expression::Function(Function::Sqrt, vec![args[0].clone()]),
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::multiplication(vec![
+                                Expression::sqrt(args[0].clone()),
                                 Expression::integer(2),
-                            ])),
+                            ]),
                         ),
                     )
                 };
@@ -792,20 +801,14 @@ impl Expression {
                 after
             }
             // exp(f) => f' * exp(f)
-            Function::Exp => {
+            FunctionType::Exp => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using exp(f)' => f' * exp(f)",
-                        Expression::Multiplication(vec![
-                            Expression::Function(Function::Exp, args.clone()),
-                            expr,
-                        ]),
+                        Expression::multiplication(vec![Expression::exp(args[0].clone()), expr]),
                     )
                 } else {
-                    (
-                        "using exp(x)' => exp(x)",
-                        Expression::Function(Function::Exp, args.clone()),
-                    )
+                    ("using exp(x)' => exp(x)", Expression::exp(args[0].clone()))
                 };
                 if let Some(exp) = explanation {
                     exp.rule_applied(rule, &before, &after);
@@ -813,25 +816,19 @@ impl Expression {
                 after
             }
             // ln(f) => f' * 1/f
-            Function::Ln => {
+            FunctionType::Ln => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using ln(f)' => f' * 1/f",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(args[0].clone()),
-                            ),
+                        Expression::multiplication(vec![
+                            Expression::division(Expression::integer(1), args[0].clone()),
                             expr,
                         ]),
                     )
                 } else {
                     (
                         "using ln(x)' => 1/x",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(args[0].clone()),
-                        ),
+                        Expression::division(Expression::integer(1), args[0].clone()),
                     )
                 };
                 if let Some(exp) = explanation {
@@ -840,20 +837,17 @@ impl Expression {
                 after
             }
             // log2(f) => f' * 1/(f*ln(2))
-            Function::Log2 => {
+            FunctionType::Log2 => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using log2(f)' => f' * 1/(f*ln(2))",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(Expression::Multiplication(vec![
+                        Expression::multiplication(vec![
+                            Expression::division(
+                                Expression::integer(1),
+                                Expression::multiplication(vec![
                                     args[0].clone(),
-                                    Expression::Function(
-                                        Function::Ln,
-                                        vec![Expression::integer(2)],
-                                    ),
-                                ])),
+                                    Expression::ln(Expression::integer(2)),
+                                ]),
                             ),
                             expr,
                         ]),
@@ -861,12 +855,12 @@ impl Expression {
                 } else {
                     (
                         "using log2(x)' => 1/(x*ln(2))",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Multiplication(vec![
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::multiplication(vec![
                                 args[0].clone(),
-                                Expression::Function(Function::Ln, vec![Expression::integer(2)]),
-                            ])),
+                                Expression::ln(Expression::integer(2)),
+                            ]),
                         ),
                     )
                 };
@@ -876,20 +870,17 @@ impl Expression {
                 after
             }
             // log10(f) => f' * 1/(f*ln(10))
-            Function::Log10 => {
+            FunctionType::Log10 => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[0], variable) {
                     (
                         "using log10(f)' => f' * 1/(f*ln(10))",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(Expression::Multiplication(vec![
+                        Expression::multiplication(vec![
+                            Expression::division(
+                                Expression::integer(1),
+                                Expression::multiplication(vec![
                                     args[0].clone(),
-                                    Expression::Function(
-                                        Function::Ln,
-                                        vec![Expression::integer(10)],
-                                    ),
-                                ])),
+                                    Expression::ln(Expression::integer(10)),
+                                ]),
                             ),
                             expr,
                         ]),
@@ -897,12 +888,12 @@ impl Expression {
                 } else {
                     (
                         "using log10(x)' => 1/(x*ln(10))",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Multiplication(vec![
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::multiplication(vec![
                                 args[0].clone(),
-                                Expression::Function(Function::Ln, vec![Expression::integer(10)]),
-                            ])),
+                                Expression::ln(Expression::integer(10)),
+                            ]),
                         ),
                     )
                 };
@@ -912,20 +903,14 @@ impl Expression {
                 after
             }
             // pow(o, f) => pow(o-1, f) * f'
-            Function::Pow => {
+            FunctionType::Pow => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[1], variable) {
                     (
                         "using pow(o, f)' => pow(o-1, f) * f'",
-                        Expression::Multiplication(vec![
-                            Expression::Function(
-                                Function::Pow,
-                                vec![
-                                    Expression::Subtraction(
-                                        Box::new(args[0].clone()),
-                                        Box::new(Expression::integer(1)),
-                                    ),
-                                    args[1].clone(),
-                                ],
+                        Expression::multiplication(vec![
+                            Expression::pow(
+                                Expression::subtraction(args[0].clone(), Expression::integer(1)),
+                                args[1].clone(),
                             ),
                             expr,
                         ]),
@@ -933,15 +918,9 @@ impl Expression {
                 } else {
                     (
                         "using pow(o, x)' => pow(o-1, x)",
-                        Expression::Function(
-                            Function::Pow,
-                            vec![
-                                Expression::Subtraction(
-                                    Box::new(args[0].clone()),
-                                    Box::new(Expression::integer(1)),
-                                ),
-                                args[1].clone(),
-                            ],
+                        Expression::pow(
+                            Expression::subtraction(args[0].clone(), Expression::integer(1)),
+                            args[1].clone(),
                         ),
                     )
                 };
@@ -951,17 +930,17 @@ impl Expression {
                 after
             }
             // log(b, f) => f' * 1/(f*ln(b))
-            Function::Log => {
+            FunctionType::Log => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[1], variable) {
                     (
                         "using log(b, f)' => f' * 1/(f*ln(b))",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(Expression::Multiplication(vec![
+                        Expression::multiplication(vec![
+                            Expression::division(
+                                Expression::integer(1),
+                                Expression::multiplication(vec![
                                     args[1].clone(),
-                                    Expression::Function(Function::Ln, vec![args[0].clone()]),
-                                ])),
+                                    Expression::ln(args[0].clone()),
+                                ]),
                             ),
                             expr,
                         ]),
@@ -969,12 +948,12 @@ impl Expression {
                 } else {
                     (
                         "using log(b, x)' => 1/(x*ln(b))",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Multiplication(vec![
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::multiplication(vec![
                                 args[1].clone(),
-                                Expression::Function(Function::Ln, vec![args[0].clone()]),
-                            ])),
+                                Expression::ln(args[0].clone()),
+                            ]),
                         ),
                     )
                 };
@@ -984,27 +963,18 @@ impl Expression {
                 after
             }
             // root(o, f) => f' * 1/(pow(1/o - 1, f)*o)
-            Function::Root => {
+            FunctionType::Root => {
                 let (rule, after) = if let Some(expr) = Self::quotient_rule(&args[1], variable) {
                     (
                         "using root(o, f)' => f' * 1/(pow(1/o - 1, f)*o)",
-                        Expression::Multiplication(vec![
-                            Expression::Division(
-                                Box::new(Expression::integer(1)),
-                                Box::new(args[0].clone()),
-                            ),
-                            Expression::Function(
-                                Function::Pow,
-                                vec![
-                                    Expression::Subtraction(
-                                        Box::new(Expression::Division(
-                                            Box::new(Expression::integer(1)),
-                                            Box::new(args[0].clone()),
-                                        )),
-                                        Box::new(Expression::integer(1)),
-                                    ),
-                                    args[1].clone(),
-                                ],
+                        Expression::multiplication(vec![
+                            Expression::division(Expression::integer(1), args[0].clone()),
+                            Expression::pow(
+                                Expression::subtraction(
+                                    Expression::division(Expression::integer(1), args[0].clone()),
+                                    Expression::integer(1),
+                                ),
+                                args[1].clone(),
                             ),
                             expr,
                         ]),
@@ -1012,24 +982,21 @@ impl Expression {
                 } else {
                     (
                         "using root(o, f)' => 1/(pow(1/o - 1, x) * o)",
-                        Expression::Division(
-                            Box::new(Expression::integer(1)),
-                            Box::new(Expression::Multiplication(vec![
+                        Expression::division(
+                            Expression::integer(1),
+                            Expression::multiplication(vec![
                                 args[0].clone(),
-                                Expression::Function(
-                                    Function::Root,
-                                    vec![
-                                        Expression::Subtraction(
-                                            Box::new(Expression::Division(
-                                                Box::new(Expression::integer(1)),
-                                                Box::new(args[0].clone()),
-                                            )),
-                                            Box::new(Expression::integer(1)),
+                                Expression::root(
+                                    Expression::subtraction(
+                                        Expression::division(
+                                            Expression::integer(1),
+                                            args[0].clone(),
                                         ),
-                                        args[1].clone(),
-                                    ],
+                                        Expression::integer(1),
+                                    ),
+                                    args[1].clone(),
                                 ),
-                            ])),
+                            ]),
                         ),
                     )
                 };
@@ -1039,7 +1006,7 @@ impl Expression {
                 after
             }
             // Unsupported functions
-            Function::Abs | Function::Ceil | Function::Floor => {
+            FunctionType::Abs | FunctionType::Ceil | FunctionType::Floor => {
                 return Err(SimplifyError::Unsupported);
             }
         };
@@ -1050,11 +1017,142 @@ impl Expression {
     fn quotient_rule(expr: &Expression, variable: &str) -> Option<Expression> {
         match expr.contains_var(variable) {
             false => None,
-            true => Some(Expression::Derivative(
-                Box::new(expr.clone()),
-                variable.to_string(),
-                1,
-            )),
+            true => Some(Expression::derivative(expr.clone(), variable, 1)),
         }
+    }
+}
+
+impl PrettyPrints for Derivative {
+    fn calculate_tree(&self, indent: usize) -> String {
+        let next_indent = indent + 2;
+        let next_indent_str = " ".repeat(next_indent);
+
+        format!(
+            "Derivative{}:\n{}{}\n{}' {}",
+            if self.order > 1 {
+                format!("({})", self.order)
+            } else {
+                "".to_owned()
+            },
+            next_indent_str,
+            self.term.calculate_tree(next_indent),
+            next_indent_str,
+            self.variable,
+        )
+    }
+
+    fn calculate_positions(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+        position: &mut Vec<(String, (usize, usize))>,
+        prev_pos: (usize, usize),
+    ) {
+        let length = self.variable.len()
+        + 2
+        + if self.order == 1 {
+            0
+        } else {
+            self.order.to_string().len()
+        };
+
+    let below_height = self.get_below_height(memoization);
+
+    let span = self.variable.len() / 2;
+
+    let mut pos = prev_pos;
+
+    let new_height = pos.0 + below_height;
+    pos.0 = new_height - (1 + if self.order == 1 { 0 } else { 1 });
+
+    // d
+    position.push(("d".to_string(), pos));
+    pos.1 += 2;
+    // d var
+    for (i, c) in self.variable.chars().enumerate() {
+        position.push((c.to_string(), (pos.0, pos.1 + i)));
+    }
+    if self.order != 1 {
+        //     order
+        // d var
+        pos.1 += self.variable.len();
+        pos.0 += 1;
+        for (i, c) in self.order.to_string().chars().enumerate() {
+            position.push((c.to_string(), (pos.0, pos.1 + i)));
+        }
+        pos.1 -= self.variable.len();
+    }
+    pos.1 -= 2;
+
+    pos.0 += 1;
+    // ---------
+    //     order
+    // d var
+    for _ in 0..length {
+        position.push(("-".to_string(), pos));
+        pos.1 += 1;
+    }
+
+    pos.1 -= length;
+    pos.0 += 1;
+    //    d
+    // ---------
+    //     order
+    // d var
+    pos.1 += span;
+    position.push(("d".to_string(), pos));
+    if self.order != 1 {
+        //    order
+        //   d
+        // ----------
+        //      order
+        // d var
+        pos.1 += 1;
+        pos.0 += 1;
+        for (i, c) in self.order.to_string().chars().enumerate() {
+            position.push((c.to_string(), (pos.0, pos.1 + i)));
+        }
+        pos.1 -= 1;
+        pos.0 -= 1;
+    }
+    pos.1 -= span;
+    //    order
+    //   d
+    // ----------  expr
+    //      order
+    // d var
+    let height = new_height - self.term.get_below_height(memoization);
+    self.term
+        .calculate_positions(memoization, position, (height, pos.1 + length + 1));
+    }
+
+    fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self
+                .term
+                .get_below_height(memoization)
+                .max(1 + if self.order == 1 { 0 } else { 1 })
+    }
+
+    fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        let der_below = 1 + if self.order == 1 { 0 } else { 1 };
+                let expr_below = self.term.get_below_height(memoization);
+
+                let top = (3 + if self.order == 1 { 0 } else { 2 } - der_below)
+                    .max(self.term.get_height(memoization) - expr_below);
+                if der_below > expr_below {
+                    der_below + top
+                } else {
+                    expr_below + top
+                }
+    }
+
+    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self.term.get_length(memoization)
+                    + self.variable.len()
+                    + 3
+                    + if self.order == 1 {
+                        0
+                    } else {
+                        self.order.to_string().len()
+                    }
     }
 }

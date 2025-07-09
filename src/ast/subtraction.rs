@@ -1,19 +1,19 @@
 use crate::{
-    ast::{Expr, SimplifyError},
+    ast::{numeral, Expr, SimplifyError},
     explanation::FormattingObserver, prints::PrettyPrints,
 };
 
 use super::Expression;
 
 #[derive(Debug, PartialEq, Clone, PartialOrd, Eq, Ord, Hash)]
-pub struct Equality {
+pub struct Subtraction {
     pub left: Expression,
     pub right: Expression,
     pub simplified: bool,
 }
 
 // Constructor
-impl Equality {
+impl Subtraction {
     pub fn new(left: Expression, right: Expression, simplified: bool) -> Self {
         Self {
             left,
@@ -23,18 +23,59 @@ impl Equality {
     }
 }
 
-impl Expr for Equality {
+impl Expr for Subtraction {
     fn simplify(
         &mut self,
         explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
         let left = self.left.simplify(explanation)?;
         let right = self.right.simplify(explanation)?;
-        Ok(Expression::equality(left, right))
-        
+
+        let before = &Expression::subtraction(left.clone(), right.clone());
+        match (left, right) {
+            // a - 0
+            (lhs, Expression::Number(numeral::Numeral::Integer(0))) => {
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("Subtracting zero stay the same", before, &lhs);
+                }
+                Ok(lhs)},
+            // 0 - a
+            (Expression::Number(numeral::Numeral::Integer(0)), rhs) => {
+                let after  = Expression::negation(rhs);
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("Adding zero stay the same", before, &after);
+                }
+                Ok(after)
+            }
+            // a - b => c 
+            (Expression::Number(lhs), Expression::Number(rhs)) => {
+                let after  = lhs.sub(&rhs);
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("Subtracting numbers", before, &after);
+                }
+                Ok(after)
+            }
+            // -a - b => -(c)
+            (Expression::Negation(lhs), Expression::Number(rhs)) => {
+                if let Expression::Number(inner_lhs) = lhs.term {
+                    let after  = Expression::negation(Expression::Number(inner_lhs.add(&rhs)));
+                    if let Some(explanation) = explanation {
+                        explanation.rule_applied("Subtracting numbers", before, &after);
+                    }
+                    Ok(after)
+                } else {
+                    Expression::addition(vec![Expression::Negation(lhs), Expression::negation(Expression::Number(rhs))])
+                    .simplify(explanation)
+                }
+            }
+            (lhs, rhs) => {
+                Expression::addition(vec![lhs, Expression::negation(rhs)])
+                    .simplify(explanation)
+            }
+        }
     }
 
-    fn is_equal(&self, other: &Equality) -> bool {
+    fn is_equal(&self, other: &Subtraction) -> bool {
         self.left.is_equal(&other.left) && self.right.is_equal(&other.right)
     }
 
@@ -47,19 +88,28 @@ impl Expr for Equality {
     }
 }
 
-impl std::fmt::Display for Equality {
+impl std::fmt::Display for Subtraction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} = {}", self.left, self.right)
+        write!(
+            f,
+            "{} - {}",
+            self.left,
+            if self.right.is_single() {
+                format!("{}", self.right)
+            } else {
+                format!("({})", self.right)
+            }
+        )
     }
 }
 
-impl PrettyPrints for Equality {
+impl PrettyPrints for Subtraction {
     fn calculate_tree(&self, indent: usize) -> String {
         let next_indent = indent + 2;
         let next_indent_str = " ".repeat(next_indent);
 
         format!(
-            "Equality:\n{}{}\n{}= {}",
+            "Subtraction:\n{}{}\n{}- {}",
             next_indent_str,
             self.left.calculate_tree(next_indent),
             next_indent_str,
@@ -79,7 +129,7 @@ impl PrettyPrints for Equality {
         pos.1 += self.left.get_length(memoization);
         position.push((" ".to_string(), pos));
         pos.1 += 1;
-        position.push(("=".to_string(), pos));
+        position.push(("-".to_string(), pos));
         pos.1 += 1;
         position.push((" ".to_string(), pos));
         pos.1 += 1;

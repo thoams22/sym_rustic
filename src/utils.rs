@@ -128,17 +128,17 @@ pub fn multinomial_expansion(terms: &[Expression], n: u64) -> Expression {
     
             // Make a multiplication of all a_m to the power stored in exponent_permutation
             for (j, _) in exponent_permutation.iter().enumerate().take(m) {
-                mult.push(Expression::Exponentiation(
-                    Box::new(terms[j].clone()),
-                    Box::new(Expression::integer(exponent_permutation[j])),
+                mult.push(Expression::exponentiation(
+                    terms[j].clone(),
+                    Expression::integer(exponent_permutation[j]),
                 ));
             }
 
             result
-                .push(Expression::Multiplication(mult));
+                .push(Expression::multiplication(mult));
         }
         
-        Expression::Addition(result)
+        Expression::addition(result)
 
 }
 
@@ -191,7 +191,7 @@ pub fn transform_multiplication(terms: Vec<Expression>) -> (bool, u64, Vec<Expre
         match term {
             Expression::Negation(inner) => {
                 if let Expression::Number(numeral::Numeral::Integer(a)) =
-                    **inner
+                    inner.term
                 {
                     coeff *= a;
                     negative = !negative;

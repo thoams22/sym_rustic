@@ -1,15 +1,68 @@
-use crate::explanation::FormattingObserver;
+use crate::{ast::Expr, explanation::FormattingObserver, prints::PrettyPrints};
 
 use super::{Expression, SimplifyError, numeral};
 
-impl Expression {
+#[derive(Debug, PartialEq, Clone, PartialOrd, Eq, Ord, Hash)]
+pub struct Multiplication {
+    pub terms: Vec<Expression>,
+    pub simplified: bool,
+}
+
+impl Multiplication {
+    pub fn new(terms: Vec<Expression>, simplified: bool) -> Self {
+        Self { terms, simplified }
+    }
+}
+
+impl Expr for Multiplication {
+    fn simplify(
+        &mut self,
+        explanation: &mut Option<Box<FormattingObserver>>,
+    ) -> Result<Expression, SimplifyError> {
+        let simplified_terms: Vec<Expression> = self.terms
+        .iter_mut()
+        .map(|term| term.simplify(explanation))
+        .collect::<Result<Vec<Expression>, _>>()?;
+    self.simplify_multiplication(simplified_terms, explanation)
+    }
+
+    fn is_equal(&self, other: &Multiplication) -> bool {
+        Expression::compare_expression_vectors(&self.terms, &other.terms)
+    }
+
+    fn contains_var(&self, variable: &str) -> bool {
+        self.terms.iter().any(|expr| expr.contains_var(variable))
+    }
+
+    fn is_single(&self) -> bool {
+        self.terms.len() <= 1
+    }
+}
+
+impl std::fmt::Display for Multiplication {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let terms: Vec<String> = self.terms
+        .iter()
+        .map(|term| {
+            if term.is_single() {
+                term.to_string()
+            } else {
+                format!("({})", term)
+            }
+        })
+        .collect();
+    write!(f, "{}", terms.join(" * "))
+    }
+}
+
+impl Multiplication {
     /// Simplify multiplication
     pub(crate) fn simplify_multiplication(
         &self,
         simplified_terms: Vec<Expression>,
         explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
-        let before = Expression::Multiplication(simplified_terms.clone());
+        let before = Expression::multiplication(simplified_terms.clone());
 
         if let Some(explanation) = explanation {
             explanation.simplify_step_started(&before);
@@ -22,7 +75,7 @@ impl Expression {
         while i < result.len() {
             let mut j: usize = i + 1;
             while j < result.len() {
-                let before = Expression::Multiplication(result.clone());
+                let before = Expression::multiplication(result.clone());
                 match (&result[i], &result[j]) {
                     // a * 0 => 0
                     (Expression::Number(numeral::Numeral::Integer(0)), _)
@@ -30,7 +83,7 @@ impl Expression {
                         if let Some(explanation) = explanation {
                             explanation.rule_applied(
                                 "Multiplying by zero yield zero",
-                                &Expression::Multiplication(result.clone()),
+                                &before,
                                 &Expression::integer(0),
                             );
                         }
@@ -38,36 +91,36 @@ impl Expression {
                     }
                     // a * mult => expand mult
                     (_, Expression::Multiplication(mult)) => {
-                        result.extend(mult.clone());
+                        result.extend(mult.terms.clone());
                         result.swap_remove(j);
                     }
                     (Expression::Multiplication(mult), _) => {
-                        result.extend(mult.clone());
+                        result.extend(mult.terms.clone());
                         result.swap_remove(i);
                     }
                     // -a * -b => a * b
                     (Expression::Negation(a), Expression::Negation(b)) => {
                         if let Some(explanation) = explanation {
-                            let after = Expression::Multiplication(vec![*a.clone(), *b.clone()]);
+                            let after = Expression::multiplication(vec![a.term.clone(), b.term.clone()]);
                             explanation.rule_applied(
                                 "Multiply two negative expression cancel the negative",
-                                &Expression::Multiplication(result.clone()),
+                                &before,
                                 &after,
                             );
                         };
-                        let new_b = *b.clone();
-                        result[i] = *a.clone();
+                        let new_b = b.term.clone();
+                        result[i] = a.term.clone();
                         result[j] = new_b;
                     }
                     // a * -b => -(a * b)
                     (_, Expression::Negation(b)) => {
                         negative = !negative;
-                        result[j] = *b.clone();
+                        result[j] = b.term.clone();
                     }
                     // -a * b => -(a * b)
                     (Expression::Negation(b), _) => {
                         negative = !negative;
-                        result[i] = *b.clone();
+                        result[i] = b.term.clone();
                     }
                     // 1 * a => a
                     (Expression::Number(numeral::Numeral::Integer(1)), a)
@@ -75,8 +128,8 @@ impl Expression {
                         if let Some(explanation) = explanation {
                             explanation.rule_applied(
                                 "Multiply by one stay the same",
-                                &Expression::Multiplication(result.clone()),
-                                &a,
+                                &before,
+                                a,
                             );
                         }
                         result[i] = a.clone();
@@ -87,7 +140,7 @@ impl Expression {
                         if let Some(explanation) = explanation {
                             explanation.rule_applied(
                                 "Multiply numbers",
-                                &Expression::Multiplication(result.clone()),
+                                &before,
                                 &after,
                             );
                         };
@@ -96,14 +149,14 @@ impl Expression {
                     }
                     // a * a => a^2
                     (a, b) if a.is_equal(b) => {
-                        let mut after = Expression::Exponentiation(
-                            Box::new(result[i].clone()),
-                            Box::new(Expression::Number(numeral::Numeral::Integer(2))),
+                        let mut after = Expression::exponentiation(
+                            result[i].clone(),
+                            Expression::integer(2),
                         );
                         if let Some(explanation) = explanation {
                             explanation.rule_applied(
                                 "Multiply the same expression",
-                                &Expression::Multiplication(result.clone()),
+                                &before,
                                 &after,
                             );
                         }
@@ -112,35 +165,35 @@ impl Expression {
                     }
                     // (a + b i)(c + d i) => ac - bd + ad i + bc i
                     (
-                        Expression::Complex(lhs_real, lhs_imag),
-                        Expression::Complex(rhs_real, rhs_imag),
+                        Expression::Complex(lhs),
+                        Expression::Complex(rhs),
                     ) => {
-                        let mut after = Expression::Complex(
-                            Box::new(Expression::Addition(vec![
-                                Expression::Multiplication(vec![
-                                    *lhs_real.clone(),
-                                    *rhs_real.clone(),
+                        let mut after = Expression::complex(
+                            Expression::addition(vec![
+                                Expression::multiplication(vec![
+                                    lhs.real.clone(),
+                                    rhs.real.clone(),
                                 ]),
-                                Expression::Negation(Box::new(Expression::Multiplication(vec![
-                                    *lhs_imag.clone(),
-                                    *rhs_imag.clone(),
-                                ]))),
-                            ])),
-                            Box::new(Expression::Addition(vec![
-                                Expression::Multiplication(vec![
-                                    *lhs_real.clone(),
-                                    *rhs_imag.clone(),
+                                Expression::negation(Expression::multiplication(vec![
+                                    lhs.imag.clone(),
+                                    rhs.imag.clone(),
+                                ])),
+                            ]),
+                            Expression::addition(vec![
+                                Expression::multiplication(vec![
+                                    lhs.real.clone(),
+                                    rhs.imag.clone(),
                                 ]),
-                                Expression::Multiplication(vec![
-                                    *lhs_imag.clone(),
-                                    *rhs_real.clone(),
+                                Expression::multiplication(vec![
+                                    lhs.imag.clone(),
+                                    rhs.real.clone(),
                                 ]),
-                            ])),
+                            ]),
                         );
                         if let Some(explanation) = explanation {
                             explanation.rule_applied(
                                 "Multiply two complex expression\n(a + b i)(c + d i) => ac - bd + i(ad + bc)",
-                                &Expression::Multiplication(result.clone()),
+                                &before,
                                 &after
                             );
                         };
@@ -148,15 +201,15 @@ impl Expression {
                         result.swap_remove(j);
                     }
                     // a(b + c i) => ab + ac i
-                    (a, Expression::Complex(real, imag)) | (Expression::Complex(real, imag), a) => {
-                        let mut after = Expression::Complex(
-                            Box::new(Expression::Multiplication(vec![a.clone(), *real.clone()])),
-                            Box::new(Expression::Multiplication(vec![a.clone(), *imag.clone()])),
+                    (a, Expression::Complex(comp)) | (Expression::Complex(comp), a) => {
+                        let mut after = Expression::complex(
+                            Expression::multiplication(vec![a.clone(), comp.real.clone()]),
+                            Expression::multiplication(vec![a.clone(), comp.imag.clone()]),
                         );
                         if let Some(explanation) = explanation {
                             explanation.rule_applied(
                                 "Multiply with a complex expression\n(a + b i)(c + d i) => a(b + c i) => ab + iac",
-                                &Expression::Multiplication(result.clone()),
+                                &before,
                                 &after
                             );
                         };
@@ -165,12 +218,12 @@ impl Expression {
                     }
                     // (a + b)(c + d) => ac + ad + bc + bd
                     (Expression::Addition(lhs), Expression::Addition(rhs)) => {
-                        let mut after = Expression::Addition(
-                            lhs.iter()
+                        let mut after = Expression::addition(
+                            lhs.terms.iter()
                                 .flat_map(|l_term| {
-                                    rhs.iter()
+                                    rhs.terms.iter()
                                         .map(|r_term| {
-                                            Expression::Multiplication(vec![
+                                            Expression::multiplication(vec![
                                                 l_term.clone(),
                                                 r_term.clone(),
                                             ])
@@ -182,7 +235,7 @@ impl Expression {
                         if let Some(explanation) = explanation {
                             explanation.rule_applied(
                                 "Multiply additions by distributing each term",
-                                &Expression::Multiplication(result.clone()),
+                                &before,
                                 &after,
                             );
                         };
@@ -190,19 +243,19 @@ impl Expression {
                         result.swap_remove(j);
                     }
                     // a(b + c) => ab + ac
-                    (a, Expression::Addition(terms)) | (Expression::Addition(terms), a) => {
-                        let mut after = Expression::Addition(
-                            terms
+                    (a, Expression::Addition(add)) | (Expression::Addition(add), a) => {
+                        let mut after = Expression::addition(
+                            add.terms
                                 .iter()
                                 .map(|term| {
-                                    Expression::Multiplication(vec![term.clone(), a.clone()])
+                                    Expression::multiplication(vec![term.clone(), a.clone()])
                                 })
                                 .collect(),
                         );
                         if let Some(explanation) = explanation {
                             explanation.rule_applied(
                                 "Multiply by distributing each term",
-                                &Expression::Multiplication(result.clone()),
+                                &before,
                                 &after,
                             );
                         };
@@ -211,21 +264,21 @@ impl Expression {
                     }
                     // a^x * a^y => a^(x + y)
                     (
-                        Expression::Exponentiation(lhs_base, lhs_exp),
-                        Expression::Exponentiation(rhs_base, rhs_exp),
+                        Expression::Exponentiation(lhs),
+                        Expression::Exponentiation(rhs),
                     ) => {
-                        if lhs_base.is_equal(rhs_base) {
-                            let mut after = Expression::Exponentiation(
-                                lhs_base.clone(),
-                                Box::new(Expression::Addition(vec![
-                                    *lhs_exp.clone(),
-                                    *rhs_exp.clone(),
-                                ])),
+                        if lhs.base.is_equal(&rhs.base) {
+                            let mut after = Expression::exponentiation(
+                                lhs.base.clone(),
+                                Expression::addition(vec![
+                                    lhs.expo.clone(),
+                                    rhs.expo.clone(),
+                                ]),
                             );
                             if let Some(explanation) = explanation {
                                 explanation.rule_applied(
                                     "Multiply terms with the the same base by adding the exponents",
-                                    &Expression::Multiplication(result.clone()),
+                                    &before,
                                     &after,
                                 );
                             };
@@ -236,11 +289,11 @@ impl Expression {
                         }
                     }
                     // a*(b/c) => (a*c)/b
-                    (norm, Expression::Division(num, den))
-                    | (Expression::Division(num, den), norm) => {
+                    (norm, Expression::Division(div))
+                    | (Expression::Division(div), norm) => {
                         let mut after = Expression::division(
-                            Expression::Multiplication(vec![norm.clone(), *num.clone()]),
-                            *den.clone(),
+                            Expression::multiplication(vec![norm.clone(), div.num.clone()]),
+                            div.den.clone(),
                         );
                         if let Some(explanation) = explanation {
                             explanation.rule_applied(
@@ -253,20 +306,20 @@ impl Expression {
                         result[i] = after.simplify(explanation)?;
                     }
                     // a^x * a => a^(x + 1)
-                    (Expression::Exponentiation(base, exp), a)
-                    | (a, Expression::Exponentiation(base, exp)) => {
-                        if base.is_equal(a) {
-                            let mut after = Expression::Exponentiation(
-                                base.clone(),
-                                Box::new(Expression::Addition(vec![
-                                    *exp.clone(),
-                                    Expression::Number(numeral::Numeral::Integer(1)),
-                                ])),
+                    (Expression::Exponentiation(exp), a)
+                    | (a, Expression::Exponentiation(exp)) => {
+                        if exp.base.is_equal(a) {
+                            let mut after = Expression::exponentiation(
+                                exp.base.clone(),
+                                Expression::addition(vec![
+                                    exp.expo.clone(),
+                                    Expression::integer(1),
+                                ]),
                             );
                             if let Some(explanation) = explanation {
                                 explanation.rule_applied(
                                     "Multiply terms with the the same base by adding the exponents",
-                                    &Expression::Multiplication(result.clone()),
+                                    &before,
                                     &after,
                                 );
                             }
@@ -295,7 +348,7 @@ impl Expression {
         } else if result.is_empty() {
             Expression::integer(1)
         } else {
-            Expression::Multiplication(result)
+            Expression::multiplication(result)
         };
 
         if negative {
@@ -310,5 +363,90 @@ impl Expression {
             }
             Ok(sol)
         }
+    }
+}
+
+impl PrettyPrints for Multiplication {
+    fn calculate_tree(&self, indent: usize) -> String {
+        let next_indent = indent + 2;
+        let next_indent_str = " ".repeat(next_indent);
+
+        if self.terms.is_empty() {
+            "1".to_string()
+        } else if self.terms.len() == 1 {
+            self.terms[0].calculate_tree(indent)
+        } else {
+            let mut result = String::from("Multiplication:\n");
+            for (i, term) in self.terms.iter().enumerate() {
+                result.push_str(&format!(
+                    "{}{}{}",
+                    next_indent_str,
+                    "* ",
+                    term.calculate_tree(next_indent)
+                ));
+                if i < self.terms.len() - 1 {
+                    result.push('\n');
+                }
+            }
+            result
+        }
+    }
+
+    fn calculate_positions(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+        position: &mut Vec<(String, (usize, usize))>,
+        prev_pos: (usize, usize),
+    ) {
+        let mut pos = prev_pos;
+        let below_height = self.get_below_height(memoization);
+
+        self.terms.iter().enumerate().for_each(|(i, x)| {
+            let new_height = pos.0 + below_height - x.get_below_height(memoization);
+            x.calculate_positions(memoization, position, (new_height, pos.1));
+            pos.1 += x.get_length(memoization);
+            if i < self.terms.len() - 1 {
+                position.push((" ".to_string(), (pos.0 + below_height, pos.1)));
+                pos.1 += 1;
+                position.push(("*".to_string(), (pos.0 + below_height, pos.1)));
+                pos.1 += 1;
+                position.push((" ".to_string(), (pos.0 + below_height, pos.1)));
+                pos.1 += 1;
+            }
+        });
+    }
+
+    fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        self
+                .terms
+                .iter()
+                .map(|x| x.get_below_height(memoization))
+                .max()
+                .unwrap_or(0)
+    }
+
+    fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        let mut max_top_height = 0;
+        let mut max_below_height = 0;
+
+        self.terms.iter().for_each(|x| {
+            let x_height = x.get_height(memoization);
+            let x_below = x.get_below_height(memoization);
+
+            max_top_height = (x_height - x_below).max(max_top_height);
+            max_below_height = x_below.max(max_below_height);
+        });
+
+        max_top_height + max_below_height
+    }
+
+    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+        let length = self
+        .terms
+        .iter()
+        .map(|x| x.get_length(memoization))
+        .sum::<usize>();
+
+    self.terms.len() * 3 - 3 + length
     }
 }

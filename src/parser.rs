@@ -1,5 +1,4 @@
-use crate::ast::Expression::Function;
-use crate::ast::{Expression, numeral};
+use crate::ast::Expression;
 use crate::lexer::Token;
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
@@ -95,14 +94,14 @@ impl<'a> Parser<'a> {
             let right_expr = self.parse_binary(None, precedence)?;
 
             left_expr = match token {
-                Token::Plus => Expression::Addition(vec![left_expr, right_expr]),
-                Token::Minus => Expression::Subtraction(Box::new(left_expr), Box::new(right_expr)),
-                Token::Multiply => Expression::Multiplication(vec![left_expr, right_expr]),
-                Token::Divide => Expression::Division(Box::new(left_expr), Box::new(right_expr)),
+                Token::Plus => Expression::addition(vec![left_expr, right_expr]),
+                Token::Minus => Expression::subtraction(left_expr, right_expr),
+                Token::Multiply => Expression::multiplication(vec![left_expr, right_expr]),
+                Token::Divide => Expression::division(left_expr, right_expr),
                 Token::Caret => {
-                    Expression::Exponentiation(Box::new(left_expr), Box::new(right_expr))
+                    Expression::exponentiation(left_expr, right_expr)
                 }
-                Token::Equals => Expression::Equality(Box::new(left_expr), Box::new(right_expr)),
+                Token::Equals => Expression::equality(left_expr, right_expr),
                 _ => {
                     return Err(ParseError::UnexpectedToken(
                         format!("{}", token),
@@ -131,7 +130,7 @@ impl<'a> Parser<'a> {
                     self.current_token(),
                     Some(&Token::LeftParen) | Some(&Token::Literal(_))
                 ) {
-                    Ok(Expression::Multiplication(vec![
+                    Ok(Expression::multiplication(vec![
                         expr,
                         self.parse_binary(None, 3)?,
                     ]))
@@ -150,12 +149,12 @@ impl<'a> Parser<'a> {
                     self.current_token(),
                     Some(&Token::LeftParen) | Some(&Token::Literal(_))
                 ) {
-                    Ok(Expression::Multiplication(vec![
+                    Ok(Expression::multiplication(vec![
                         expr,
                         self.parse_binary(None, 3)?,
                     ]))
                 } else {
-                    Ok(Expression::Negation(Box::new(expr)))
+                    Ok(Expression::negation(expr))
                 }
             }
             Some(Token::Number(value)) => self.parse_number(value.clone()),
@@ -169,7 +168,7 @@ impl<'a> Parser<'a> {
                     self.current_token(),
                     Some(&Token::LeftParen) | Some(&Token::Literal(_)) | Some(&Token::Number(_))
                 ) {
-                    Ok(Expression::Multiplication(vec![
+                    Ok(Expression::multiplication(vec![
                         expr,
                         self.parse_binary(None, 3)?,
                     ]))
@@ -192,7 +191,7 @@ impl<'a> Parser<'a> {
                             | Some(&Token::Literal(_))
                             | Some(&Token::Number(_))
                     ) {
-                        Ok(Expression::Multiplication(vec![
+                        Ok(Expression::multiplication(vec![
                             expr,
                             self.parse_binary(None, 3)?,
                         ]))
@@ -279,7 +278,7 @@ impl<'a> Parser<'a> {
                     self.current_token(),
                     Some(&Token::LeftParen) | Some(&Token::Literal(_))
                 ) {
-                    Ok(Expression::Multiplication(vec![
+                    Ok(Expression::multiplication(vec![
                         number,
                         self.parse_binary(None, 3)?,
                     ]))
@@ -297,7 +296,7 @@ impl<'a> Parser<'a> {
         match self.current_token() {
             Some(Token::Underscore) => {
                 let var = self.parse_variable(variable)?;
-                Ok(Expression::Variable(var))
+                Ok(Expression::variable(&var))
             }
             Some(Token::Caret) | Some(Token::Divide) if variable == "d" => {
                 let position = self.position;
@@ -305,20 +304,20 @@ impl<'a> Parser<'a> {
                     Ok(derivative) => Ok(derivative),
                     Err(_) => {
                         self.position = position;
-                        Ok(Expression::Variable("d".to_string()))
+                        Ok(Expression::variable("d"))
                     }
                 }
             }
             Some(Token::LeftParen) => self.parse_functions(variable),
             _ => match variable.as_str() {
-                "tau" => Ok(Expression::Constant(crate::ast::constant::Constant::Tau)),
-                "pi" => Ok(Expression::Constant(crate::ast::constant::Constant::Pi)),
-                "e" => Ok(Expression::Constant(crate::ast::constant::Constant::E)),
-                "i" => Ok(Expression::Complex(
-                    Box::new(Expression::Number(numeral::Numeral::Integer(0))),
-                    Box::new(Expression::Number(numeral::Numeral::Integer(1))),
+                "tau" => Ok(Expression::tau()),
+                "pi" => Ok(Expression::pi()),
+                "e" => Ok(Expression::e()),
+                "i" => Ok(Expression::complex(
+                    Expression::integer(0),
+                    Expression::integer(1),
                 )),
-                _ => Ok(Expression::Variable(variable)),
+                _ => Ok(Expression::variable(&variable)),
             },
         }
     }
@@ -364,9 +363,9 @@ impl<'a> Parser<'a> {
                 if let Some(Token::Divide) = self.current_token() {
                     self.advance();
                 } else {
-                    return Ok(Expression::Exponentiation(
-                        Box::new(Expression::Variable("d".to_string())),
-                        Box::new(Expression::integer(order.unwrap() as u64)),
+                    return Ok(Expression::exponentiation(
+                        Expression::variable("d"),
+                        Expression::integer(order.unwrap() as u64),
                     ));
                 }
             } else {
@@ -446,9 +445,9 @@ impl<'a> Parser<'a> {
         //     return Err(ParseError::DerivativeFailed);
         // }?;
 
-        Ok(Expression::Derivative(
-            Box::new(expr),
-            var.to_string(),
+        Ok(Expression::derivative(
+            expr,
+            &var,
             order.unwrap_or(1),
         ))
     }
@@ -465,26 +464,26 @@ impl<'a> Parser<'a> {
             self.advance();
             match args.len() {
                 1 => match variable.as_str() {
-                    "sin" => Ok(Function(crate::ast::function::Function::Sin, args)),
-                    "cos" => Ok(Function(crate::ast::function::Function::Cos, args)),
-                    "tan" => Ok(Function(crate::ast::function::Function::Tan, args)),
-                    "asin" => Ok(Function(crate::ast::function::Function::Asin, args)),
-                    "acos" => Ok(Function(crate::ast::function::Function::Acos, args)),
-                    "atan" => Ok(Function(crate::ast::function::Function::Atan, args)),
-                    "sinh" => Ok(Function(crate::ast::function::Function::Sinh, args)),
-                    "cosh" => Ok(Function(crate::ast::function::Function::Cosh, args)),
-                    "tanh" => Ok(Function(crate::ast::function::Function::Tanh, args)),
-                    "asinh" => Ok(Function(crate::ast::function::Function::Asinh, args)),
-                    "acosh" => Ok(Function(crate::ast::function::Function::Acosh, args)),
-                    "atanh" => Ok(Function(crate::ast::function::Function::Atanh, args)),
-                    "sqrt" => Ok(Function(crate::ast::function::Function::Sqrt, args)),
-                    "exp" => Ok(Function(crate::ast::function::Function::Exp, args)),
-                    "ln" => Ok(Function(crate::ast::function::Function::Ln, args)),
-                    "log2" => Ok(Function(crate::ast::function::Function::Log2, args)),
-                    "log10" => Ok(Function(crate::ast::function::Function::Log10, args)),
-                    "abs" => Ok(Function(crate::ast::function::Function::Abs, args)),
-                    "ceil" => Ok(Function(crate::ast::function::Function::Ceil, args)),
-                    "floor" => Ok(Function(crate::ast::function::Function::Floor, args)),
+                    "sin" => Ok(Expression::sin( args[0].clone())),
+                    "cos" => Ok(Expression::cos( args[0].clone())),
+                    "tan" => Ok(Expression::tan(args[0].clone())),
+                    "asin" => Ok(Expression::asin(args[0].clone())),
+                    "acos" => Ok(Expression::acos(args[0].clone())),
+                    "atan" => Ok(Expression::atan(args[0].clone())),
+                    "sinh" => Ok(Expression::sinh(args[0].clone())),
+                    "cosh" => Ok(Expression::cosh(args[0].clone())),
+                    "tanh" => Ok(Expression::tanh(args[0].clone())),
+                    "asinh" => Ok(Expression::asinh(args[0].clone())),
+                    "acosh" => Ok(Expression::acosh(args[0].clone())),
+                    "atanh" => Ok(Expression::atanh(args[0].clone())),
+                    "sqrt" => Ok(Expression::sqrt(args[0].clone())),
+                    "exp" => Ok(Expression::exp(args[0].clone())),
+                    "ln" => Ok(Expression::ln(args[0].clone())),
+                    "log2" => Ok(Expression::log2(args[0].clone())),
+                    "log10" => Ok(Expression::log10(args[0].clone())),
+                    "abs" => Ok(Expression::abs(args[0].clone())),
+                    "ceil" => Ok(Expression::ceil(args[0].clone())),
+                    "floor" => Ok(Expression::floor(args[0].clone())),
                     _ => Err(ParseError::InvalidFunctionFormat(
                         variable,
                         1,
@@ -492,11 +491,11 @@ impl<'a> Parser<'a> {
                     )),
                 },
                 2 => match variable.as_str() {
-                    "root" => Ok(Function(crate::ast::function::Function::Root, args)),
+                    "root" => Ok(Expression::root(args[0].clone(), args[1].clone())),
 
-                    "log" => Ok(Function(crate::ast::function::Function::Log, args)),
+                    "log" => Ok(Expression::log(args[0].clone(), args[1].clone())),
 
-                    "pow" => Ok(Function(crate::ast::function::Function::Pow, args)),
+                    "pow" => Ok(Expression::pow(args[0].clone(), args[1].clone())),
                     _ => Err(ParseError::InvalidFunctionFormat(
                         variable,
                         2,

@@ -30,7 +30,6 @@ fn simplify(
 mod tests_additions {
     use crate::{lex, parse, simplify};
     use sym_rustic::ast::Expression;
-    use sym_rustic::ast::function::Function;
 
     #[test]
     fn test_addition_1() {
@@ -41,7 +40,7 @@ mod tests_additions {
     #[test]
     fn test_addition_2() {
         let expr = simplify(parse(lex("a + a")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Multiplication(vec![
+        assert!(expr.is_equal(&Expression::multiplication(vec![
             Expression::integer(2),
             Expression::variable("a")
         ])));
@@ -50,7 +49,7 @@ mod tests_additions {
     #[test]
     fn test_addition_3() {
         let expr = simplify(parse(lex("a + a + a")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Multiplication(vec![
+        assert!(expr.is_equal(&Expression::multiplication(vec![
             Expression::integer(3),
             Expression::variable("a")
         ])));
@@ -59,7 +58,7 @@ mod tests_additions {
     #[test]
     fn test_addition_4() {
         let expr = simplify(parse(lex("a + 2a + 4a")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Multiplication(vec![
+        assert!(expr.is_equal(&Expression::multiplication(vec![
             Expression::integer(7),
             Expression::variable("a")
         ])));
@@ -109,9 +108,9 @@ mod tests_additions {
     #[test]
     fn test_addition_11() {
         let expr = simplify(parse(lex("cos(x) + cos(x)")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Multiplication(vec![
+        assert!(expr.is_equal(&Expression::multiplication(vec![
             Expression::integer(2),
-            Expression::Function(Function::Cos, vec![Expression::variable("x")]),
+            Expression::cos(Expression::variable("x")),
         ])));
     }
 
@@ -126,15 +125,15 @@ mod tests_additions {
         let expr = simplify(parse(lex("a + b i + c + d i")), &mut None).unwrap();
 
         assert!(expr.is_equal(&Expression::complex(
-            Expression::Addition(vec![Expression::variable("a"), Expression::variable("c")]),
-            Expression::Addition(vec![Expression::variable("b"), Expression::variable("d")])
+            Expression::addition(vec![Expression::variable("a"), Expression::variable("c")]),
+            Expression::addition(vec![Expression::variable("b"), Expression::variable("d")])
         )))
     }
 
     #[test]
     fn test_addition_14() {
         let expr = simplify(parse(lex("cos(x) + cos(y)")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Addition(vec![
+        assert!(expr.is_equal(&Expression::addition(vec![
             Expression::cos(Expression::variable("x")),
             Expression::cos(Expression::variable("y")),
         ])));
@@ -181,7 +180,7 @@ mod tests_additions {
     #[test]
     fn test_addition_21() {
         let expr = simplify(parse(lex("(a + b) + (c + d)")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Addition(vec![
+        assert!(expr.is_equal(&Expression::addition(vec![
             Expression::variable("a"),
             Expression::variable("b"),
             Expression::variable("c"),
@@ -192,7 +191,7 @@ mod tests_additions {
     #[test]
     fn test_addition_22() {
         let expr = simplify(parse(lex("(a + b) + (-c - d)")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Addition(vec![
+        assert!(expr.is_equal(&Expression::addition(vec![
             Expression::variable("a"),
             Expression::variable("b"),
             Expression::negation(Expression::variable("c")),
@@ -232,7 +231,7 @@ mod tests_multiplication {
     #[test]
     fn test_multiplication_4() {
         let expr = simplify(parse(lex("a * 2a * 4a")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Multiplication(vec![
+        assert!(expr.is_equal(&Expression::multiplication(vec![
             Expression::integer(8),
             Expression::exponentiation(Expression::variable("a"), Expression::integer(3))
         ])));
@@ -277,7 +276,7 @@ mod tests_multiplication {
     #[test]
     fn test_multiplication_11() {
         let expr = simplify(parse(lex("cos(x) * cos(y)")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Multiplication(vec![
+        assert!(expr.is_equal(&Expression::multiplication(vec![
             Expression::cos(Expression::variable("x")),
             Expression::cos(Expression::variable("y")),
         ])));
@@ -289,7 +288,7 @@ mod tests_multiplication {
 
         assert!(expr.is_equal(&Expression::complex(
             Expression::exponentiation(Expression::variable("a"), Expression::integer(2)),
-            Expression::Multiplication(vec![Expression::variable("a"), Expression::variable("b")])
+            Expression::multiplication(vec![Expression::variable("a"), Expression::variable("b")])
         )));
     }
 
@@ -298,22 +297,22 @@ mod tests_multiplication {
         let expr = simplify(parse(lex("(a + b i) * (c + d i)")), &mut None).unwrap();
 
         assert!(expr.is_equal(&Expression::complex(
-            Expression::Addition(vec![
-                Expression::Multiplication(vec![
+            Expression::addition(vec![
+                Expression::multiplication(vec![
                     Expression::variable("a"),
                     Expression::variable("c")
                 ]),
-                Expression::negation(Expression::Multiplication(vec![
+                Expression::negation(Expression::multiplication(vec![
                     Expression::variable("b"),
                     Expression::variable("d")
                 ]))
             ]),
-            Expression::Addition(vec![
-                Expression::Multiplication(vec![
+            Expression::addition(vec![
+                Expression::multiplication(vec![
                     Expression::variable("a"),
                     Expression::variable("d")
                 ]),
-                Expression::Multiplication(vec![
+                Expression::multiplication(vec![
                     Expression::variable("b"),
                     Expression::variable("c")
                 ])
@@ -325,7 +324,7 @@ mod tests_multiplication {
     fn test_multiplication_15() {
         let expr = simplify(parse(lex("(a + b i) * (a - b i)")), &mut None).unwrap();
 
-        assert!(expr.is_equal(&Expression::Addition(vec![
+        assert!(expr.is_equal(&Expression::addition(vec![
             Expression::exponentiation(Expression::variable("a"), Expression::integer(2)),
             Expression::exponentiation(Expression::variable("b"), Expression::integer(2))
         ])));
@@ -335,9 +334,9 @@ mod tests_multiplication {
     fn test_multiplication_16() {
         let expr = simplify(parse(lex("a (b + c)")), &mut None).unwrap();
 
-        assert!(expr.is_equal(&Expression::Addition(vec![
-            Expression::Multiplication(vec![Expression::variable("a"), Expression::variable("b")]),
-            Expression::Multiplication(vec![Expression::variable("a"), Expression::variable("c")])
+        assert!(expr.is_equal(&Expression::addition(vec![
+            Expression::multiplication(vec![Expression::variable("a"), Expression::variable("b")]),
+            Expression::multiplication(vec![Expression::variable("a"), Expression::variable("c")])
         ])));
     }
 
@@ -346,11 +345,11 @@ mod tests_multiplication {
         let expr = simplify(parse(lex(" c/ (a + b i)")), &mut None).unwrap();
 
         assert!(expr.is_equal(&Expression::complex(
-            Expression::Multiplication(vec![
+            Expression::multiplication(vec![
                 Expression::variable("c"),
                 Expression::variable("a"),
                 Expression::exponentiation(
-                    Expression::Addition(vec![
+                    Expression::addition(vec![
                         Expression::exponentiation(
                             Expression::variable("a"),
                             Expression::integer(2)
@@ -363,11 +362,11 @@ mod tests_multiplication {
                     Expression::negation(Expression::integer(1))
                 )
             ]),
-            Expression::Multiplication(vec![
+            Expression::multiplication(vec![
                 Expression::variable("c"),
                 Expression::variable("b"),
                 Expression::exponentiation(
-                    Expression::Addition(vec![
+                    Expression::addition(vec![
                         Expression::exponentiation(
                             Expression::variable("a"),
                             Expression::integer(2)
@@ -387,7 +386,7 @@ mod tests_multiplication {
     fn test_multiplication_18() {
         let expr = simplify(parse(lex(" b/ sqrt(3) ")), &mut None).unwrap();
 
-        assert!(expr.is_equal(&Expression::Multiplication(vec![
+        assert!(expr.is_equal(&Expression::multiplication(vec![
             Expression::variable("b"),
             Expression::exponentiation(
                 Expression::sqrt(Expression::integer(3)),
@@ -400,8 +399,8 @@ mod tests_multiplication {
     fn test_multiplication_19() {
         let expr = simplify(parse(lex("(a + b)/(a)")), &mut None).unwrap();
 
-        assert!(expr.is_equal(&Expression::Addition(vec![
-            Expression::Multiplication(vec![
+        assert!(expr.is_equal(&Expression::addition(vec![
+            Expression::multiplication(vec![
                 Expression::exponentiation(
                     Expression::variable("a"),
                     Expression::negation(Expression::integer(1))
@@ -430,7 +429,7 @@ mod tests_multiplication {
     fn test_multiplication_22() {
         let expr = simplify(parse(lex("(a * b) / (a * c)")), &mut None).unwrap();
 
-        assert!(expr.is_equal(&Expression::Multiplication(vec![
+        assert!(expr.is_equal(&Expression::multiplication(vec![
             Expression::variable("b"),
             Expression::exponentiation(
                 Expression::variable("c"),
@@ -457,7 +456,7 @@ mod tests_multiplication {
     fn test_multiplication_25() {
         let expr = simplify(parse(lex("-a * 2")), &mut None).unwrap();
 
-        assert!(expr.is_equal(&Expression::Multiplication(vec![
+        assert!(expr.is_equal(&Expression::multiplication(vec![
             Expression::variable("a"),
             Expression::negation(Expression::integer(2))
         ])));
@@ -467,7 +466,7 @@ mod tests_multiplication {
     fn test_multiplication_26() {
         let expr = simplify(parse(lex("-a * -2")), &mut None).unwrap();
 
-        assert!(expr.is_equal(&Expression::Multiplication(vec![
+        assert!(expr.is_equal(&Expression::multiplication(vec![
             Expression::variable("a"),
             Expression::integer(2)
         ])));
@@ -568,13 +567,13 @@ mod tests_division {
         assert_eq!(
             expr,
             Expression::complex(
-                // Expression::Multiplication(vec![
-                Expression::Addition(vec![
-                    Expression::Multiplication(vec![
+                // Expression::multiplication(vec![
+                Expression::addition(vec![
+                    Expression::multiplication(vec![
                         Expression::variable("a"),
                         Expression::variable("c"),
                         Expression::exponentiation(
-                            Expression::Addition(vec![
+                            Expression::addition(vec![
                                 Expression::exponentiation(
                                     Expression::variable("c"),
                                     Expression::integer(2)
@@ -587,11 +586,11 @@ mod tests_division {
                             Expression::negation(Expression::integer(1))
                         )
                     ]),
-                    Expression::negation(Expression::Multiplication(vec![
+                    Expression::negation(Expression::multiplication(vec![
                         Expression::variable("b"),
                         Expression::variable("d"),
                         Expression::exponentiation(
-                            Expression::Addition(vec![
+                            Expression::addition(vec![
                                 Expression::exponentiation(
                                     Expression::variable("c"),
                                     Expression::integer(2)
@@ -605,13 +604,13 @@ mod tests_division {
                         )
                     ]))
                 ]), // ])
-                // Expression::Multiplication(vec![
-                Expression::Addition(vec![
-                    Expression::Multiplication(vec![
+                // Expression::multiplication(vec![
+                Expression::addition(vec![
+                    Expression::multiplication(vec![
                         Expression::variable("a"),
                         Expression::variable("d"),
                         Expression::exponentiation(
-                            Expression::Addition(vec![
+                            Expression::addition(vec![
                                 Expression::exponentiation(
                                     Expression::variable("c"),
                                     Expression::integer(2)
@@ -624,11 +623,11 @@ mod tests_division {
                             Expression::negation(Expression::integer(1))
                         )
                     ]),
-                    Expression::Multiplication(vec![
+                    Expression::multiplication(vec![
                         Expression::variable("b"),
                         Expression::variable("c"),
                         Expression::exponentiation(
-                            Expression::Addition(vec![
+                            Expression::addition(vec![
                                 Expression::exponentiation(
                                     Expression::variable("c"),
                                     Expression::integer(2)
@@ -664,7 +663,7 @@ mod tests_division {
         let expr = simplify(parse(lex("a / -2")), &mut None).unwrap();
         assert_eq!(
             expr,
-            Expression::negation(Expression::Multiplication(vec![
+            Expression::negation(Expression::multiplication(vec![
                 Expression::variable("a"),
                 Expression::exponentiation(
                     Expression::integer(2),
@@ -695,7 +694,7 @@ mod tests_subtraction {
     #[test]
     fn test_subtraction_3() {
         let expr = simplify(parse(lex("a - (-b)")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Addition(vec![
+        assert!(expr.is_equal(&Expression::addition(vec![
             Expression::variable("a"),
             Expression::variable("b")
         ])));
@@ -711,11 +710,11 @@ mod tests_subtraction {
     fn test_subtraction_5() {
         let expr = simplify(parse(lex("(a + b i) - (c + d i)")), &mut None).unwrap();
         assert!(expr.is_equal(&Expression::complex(
-            Expression::Addition(vec![
+            Expression::addition(vec![
                 Expression::variable("a"),
                 Expression::negation(Expression::variable("c"))
             ]),
-            Expression::Addition(vec![
+            Expression::addition(vec![
                 Expression::variable("b"),
                 Expression::negation(Expression::variable("d"))
             ])
@@ -725,7 +724,7 @@ mod tests_subtraction {
     #[test]
     fn test_subtraction_6() {
         let expr = simplify(parse(lex("cos(x) - cos(y)")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Addition(vec![
+        assert!(expr.is_equal(&Expression::addition(vec![
             Expression::cos(Expression::variable("x")),
             Expression::negation(Expression::cos(Expression::variable("y")))
         ])));
@@ -734,7 +733,7 @@ mod tests_subtraction {
     #[test]
     fn test_subtraction_7() {
         let expr = simplify(parse(lex("(a + b) - (c + d)")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Addition(vec![
+        assert!(expr.is_equal(&Expression::addition(vec![
             Expression::variable("a"),
             Expression::variable("b"),
             Expression::negation(Expression::variable("c")),
@@ -745,7 +744,7 @@ mod tests_subtraction {
     #[test]
     fn test_subtraction_8() {
         let expr = simplify(parse(lex("1 - a - cos(x)")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Addition(vec![
+        assert!(expr.is_equal(&Expression::addition(vec![
             Expression::integer(1),
             Expression::negation(Expression::variable("a")),
             Expression::negation(Expression::cos(Expression::variable("x")))
@@ -761,7 +760,7 @@ mod tests_subtraction {
     #[test]
     fn test_subtraction_10() {
         let expr = simplify(parse(lex("a^3 - a^2")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Addition(vec![
+        assert!(expr.is_equal(&Expression::addition(vec![
             Expression::exponentiation(Expression::variable("a"), Expression::integer(3)),
             Expression::negation(Expression::exponentiation(
                 Expression::variable("a"),
@@ -817,8 +816,8 @@ mod tests_derivatives {
     #[test]
     fn test_derivative_sum_2() {
         let expr = simplify(parse(lex("d/dx (x^2 + sin(x))")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Addition(vec![
-            Expression::Multiplication(vec![Expression::integer(2), Expression::variable("x")]),
+        assert!(expr.is_equal(&Expression::addition(vec![
+            Expression::multiplication(vec![Expression::integer(2), Expression::variable("x")]),
             Expression::cos(Expression::variable("x"))
         ])));
     }
@@ -840,11 +839,11 @@ mod tests_derivatives {
     //     let expr = simplify(parse(lex("d/dx (a / b)")), &mut None).unwrap();
     //     assert!(expr.is_equal(&Expression::Division(
     //         Expression::Subtraction(vec![
-    //             Expression::Multiplication(vec![
+    //             Expression::multiplication(vec![
     //                 Expression::derivative(Expression::variable("a"), "x"),
     //                 Expression::variable("b")
     //             ]),
-    //             Expression::Multiplication(vec![
+    //             Expression::multiplication(vec![
     //                 Expression::variable("a"),
     //                 Expression::derivative(Expression::variable("b"), "x")
     //             ])
@@ -856,7 +855,7 @@ mod tests_derivatives {
     #[test]
     fn test_derivative_power() {
         let expr = simplify(parse(lex("d/dx (x^3)")), &mut None).unwrap();
-        assert!(expr.is_equal(&Expression::Multiplication(vec![
+        assert!(expr.is_equal(&Expression::multiplication(vec![
             Expression::integer(3),
             Expression::exponentiation(Expression::variable("x"), Expression::integer(2))
         ])));

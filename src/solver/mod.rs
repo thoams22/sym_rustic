@@ -1,12 +1,12 @@
-// Solving equations for specific variables
-// Handling different types of equations (linear, quadratic, etc.)
+// // Solving equations for specific variables
+// // Handling different types of equations (linear, quadratic, etc.)
 
-// Implementing numerical methods for solving equations
-// Implementing symbolic methods for solving equations
-// Implementing methods for solving systems of equations
-// Implementing methods for solving inequalities
-// Implementing methods for solving differential equations
-// Implementing methods for solving integral equations
+// // Implementing numerical methods for solving equations
+// // Implementing symbolic methods for solving equations
+// // Implementing methods for solving systems of equations
+// // Implementing methods for solving inequalities
+// // Implementing methods for solving differential equations
+// // Implementing methods for solving integral equations
 
 use crate::ast::{Expression, SimplifyError};
 
@@ -34,8 +34,8 @@ pub enum Solution {
     Infinite,
 }
 
-// Add steps for solving equations
-pub struct Solver;
+// // Add steps for solving equations
+// pub struct Solver;
 
 impl Solver {
     /// Solves the given equation for the specified variable.
