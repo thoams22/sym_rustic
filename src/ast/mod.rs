@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use function::Function;
 
 use crate::{
@@ -42,6 +40,7 @@ pub trait Expr: std::fmt::Display {
 
     fn is_equal(&self, other: &Self) -> bool;
     fn contains_var(&self, variable: &str) -> bool;
+    fn contains(&self, expression: &Expression) -> bool;
     fn is_single(&self) -> bool;
 }
 
@@ -103,10 +102,6 @@ impl Expression {
 
     pub fn negation(arg: Expression) -> Expression {
         Expression::Negation(Box::new(Negation::new(arg, false)))
-    }
-
-    pub fn equality(lhs: Expression, rhs: Expression) -> Expression {
-        Expression::Equality(Box::new(lhs), Box::new(rhs))
     }
 
     pub fn complex(real: Expression, imag: Expression) -> Expression {
@@ -269,7 +264,12 @@ impl std::fmt::Display for Expression {
     }
 }
 
+// Expr
 impl Expression {
+
+    /// Returns a `Result` containing simplified version of the `Expression`
+    /// 
+    /// Or a `SimplifyError` if the process failed
     pub fn simplify(
         &mut self,
         explanation: &mut Option<Box<FormattingObserver>>,
@@ -311,7 +311,7 @@ impl Expression {
         }
     }
 
-    /// Check wether the `Expression` can be printed as one continuous
+    /// Check wether the `Expression` can be printed as one whitout being ambigious whitout parenthesis
     fn is_single(&self) -> bool {
         match self {
             Expression::Negation(negation) => negation.is_single(),
@@ -329,6 +329,48 @@ impl Expression {
             Expression::Derivative(derivative) => derivative.is_single(),
         }
     }
+
+    pub fn contains_var(&self, variable: &str) -> bool {
+        match self {
+            Expression::Negation(negation) => negation.contains_var(variable),
+            Expression::Number(numeral) => numeral.contains_var(variable),
+            Expression::Variable(var) => var.contains_var(variable),
+            Expression::Constant(constant) => constant.contains_var(variable),
+            Expression::Addition(addition) => addition.contains_var(variable),
+            Expression::Multiplication(multiplication) => multiplication.contains_var(variable),
+            Expression::Subtraction(substraction) => substraction.contains_var(variable),
+            Expression::Division(division) => division.contains_var(variable),
+            Expression::Exponentiation(exponentiation) => exponentiation.contains_var(variable),
+            Expression::Equality(equality) => equality.contains_var(variable),
+            Expression::Complex(complex) => complex.contains_var(variable),
+            Expression::Function(function) => function.contains_var(variable),
+            Expression::Derivative(derivative) => derivative.contains_var(variable),
+        }
+    }
+
+    pub fn contains(&self, expression: &Expression) -> bool {
+        self.is_equal(expression) ||
+        match self {
+            Expression::Negation(negation) => negation.contains(expression),
+            Expression::Number(numeral) => numeral.contains(expression),
+            Expression::Variable(var) => var.contains(expression),
+            Expression::Constant(constant) => constant.contains(expression),
+            Expression::Addition(addition) => addition.contains(expression),
+            Expression::Multiplication(multiplication) => multiplication.contains(expression),
+            Expression::Subtraction(substraction) => substraction.contains(expression),
+            Expression::Division(division) => division.contains(expression),
+            Expression::Exponentiation(exponentiation) => exponentiation.contains(expression),
+            Expression::Equality(equality) => equality.contains(expression),
+            Expression::Complex(complex) => complex.contains(expression),
+            Expression::Function(function) => function.contains(expression),
+            Expression::Derivative(derivative) => derivative.contains(expression),
+        }
+    }
+}
+
+
+// Miscellanous
+impl Expression {
 
     /// Returns `true` if the two vector are equal and `false` otherwise
     pub fn compare_expression_vectors(lhs: &[Expression], rhs: &[Expression]) -> bool {
@@ -410,22 +452,4 @@ impl Expression {
     //         _ => false,
     //     }
     // }
-
-    pub fn contains_var(&self, variable: &str) -> bool {
-        match self {
-            Expression::Negation(negation) => negation.contains_var(variable),
-            Expression::Number(numeral) => numeral.contains_var(variable),
-            Expression::Variable(var) => var.contains_var(variable),
-            Expression::Constant(constant) => constant.contains_var(variable),
-            Expression::Addition(addition) => addition.contains_var(variable),
-            Expression::Multiplication(multiplication) => multiplication.contains_var(variable),
-            Expression::Subtraction(substraction) => substraction.contains_var(variable),
-            Expression::Division(division) => division.contains_var(variable),
-            Expression::Exponentiation(exponentiation) => exponentiation.contains_var(variable),
-            Expression::Equality(equality) => equality.contains_var(variable),
-            Expression::Complex(complex) => complex.contains_var(variable),
-            Expression::Function(function) => function.contains_var(variable),
-            Expression::Derivative(derivative) => derivative.contains_var(variable),
-        }
-    }
 }

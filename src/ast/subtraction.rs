@@ -33,27 +33,36 @@ impl Expr for Subtraction {
 
         let before = &Expression::subtraction(left.clone(), right.clone());
         match (left, right) {
+            // a - - b => a + b
+            (a, Expression::Negation(neg)) => {
+                let mut after = Expression::addition(vec![a, neg.term]);
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("Subtracting a negative becomes an addition", before, &after);
+                }
+                after.simplify(explanation)
+            },
             // a - 0
             (lhs, Expression::Number(numeral::Numeral::Integer(0))) => {
                 if let Some(explanation) = explanation {
                     explanation.rule_applied("Subtracting zero stay the same", before, &lhs);
                 }
-                Ok(lhs)},
+                Ok(lhs)
+            },
             // 0 - a
             (Expression::Number(numeral::Numeral::Integer(0)), rhs) => {
-                let after  = Expression::negation(rhs);
+                let mut after  = Expression::negation(rhs);
                 if let Some(explanation) = explanation {
                     explanation.rule_applied("Adding zero stay the same", before, &after);
                 }
-                Ok(after)
+                after.simplify(explanation)
             }
             // a - b => c 
             (Expression::Number(lhs), Expression::Number(rhs)) => {
-                let after  = lhs.sub(&rhs);
+                let mut after  = lhs.sub(&rhs);
                 if let Some(explanation) = explanation {
                     explanation.rule_applied("Subtracting numbers", before, &after);
                 }
-                Ok(after)
+                after.simplify(explanation)
             }
             // -a - b => -(c)
             (Expression::Negation(lhs), Expression::Number(rhs)) => {
@@ -85,6 +94,11 @@ impl Expr for Subtraction {
 
     fn is_single(&self) -> bool {
         false
+    }
+    
+    fn contains(&self, expression: &Expression) -> bool {
+        self.left.contains(expression) || self.right.contains(expression) || 
+        self.left.is_equal(expression) || self.right.is_equal(expression)
     }
 }
 

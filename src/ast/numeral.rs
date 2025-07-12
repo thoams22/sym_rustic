@@ -1,6 +1,4 @@
-use crate::{
-    ast::Expr, explanation::FormattingObserver, prints::PrettyPrints, utils
-};
+use crate::{ast::Expr, explanation::FormattingObserver, prints::PrettyPrints, utils};
 
 use super::{Expression, SimplifyError};
 
@@ -80,16 +78,15 @@ impl Expr for Numeral {
             Ok(Expression::Number(*self))
         }
     }
-    
+
     fn is_equal(&self, other: &Self) -> bool {
         match (self, other) {
             (Numeral::Integer(a), Numeral::Integer(b)) => a == b,
-            (Numeral::Rational(a, b), Numeral::Rational(c, d)) => {
-                a == c && b == d
-            }
+            (Numeral::Rational(a, b), Numeral::Rational(c, d)) => a == c && b == d,
             _ => false,
-    }}
-    
+        }
+    }
+
     fn contains_var(&self, _variable: &str) -> bool {
         false
     }
@@ -101,6 +98,23 @@ impl Expr for Numeral {
         }
     }
     
+    fn contains(&self, expression: &Expression) -> bool {
+        // If integer can be contianed in a rationnal
+        if let Expression::Number(Numeral::Integer(int)) = expression { 
+            match self {
+                Numeral::Integer(_) => self.is_equal(&Numeral::Integer(*int)),
+                Numeral::Rational(num, den) => {
+                    num == int || den == int
+                },
+            }
+        }
+        else if let Expression::Number(rational) = expression {
+            self.is_equal(rational)
+        }
+        else  {
+            false
+        }
+    }
 }
 
 impl Numeral {
@@ -180,35 +194,51 @@ impl std::fmt::Display for Numeral {
 impl PrettyPrints for Numeral {
     fn calculate_tree(&self, _indent: usize) -> String {
         format!("{}", self)
-
     }
 
     fn calculate_positions(
         &self,
-        _memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
         position: &mut Vec<(String, (usize, usize))>,
         prev_pos: (usize, usize),
     ) {
-        for (i, c) in self.to_string().chars().enumerate() {
-            position.push((c.to_string(), (prev_pos.0, prev_pos.1 + i)));
+        match self {
+            Numeral::Integer(num) => {
+                for (i, c) in num.to_string().chars().enumerate() {
+                    position.push((c.to_string(), (prev_pos.0, prev_pos.1 + i)));
+                }
+            }
+            Numeral::Rational(num, den) => {
+                Expression::division(Expression::integer(*num), Expression::integer(*den))
+                    .calculate_positions(memoization, position, prev_pos)
+            }
         }
     }
 
-    fn get_below_height(&self, _memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+    fn get_below_height(
+        &self,
+        _memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+    ) -> usize {
         match self {
             Numeral::Integer(_) => 0,
             Numeral::Rational(_num, _den) => 1,
         }
     }
 
-    fn get_height(&self, _memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+    fn get_height(
+        &self,
+        _memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+    ) -> usize {
         match self {
             Numeral::Integer(_) => 1,
             Numeral::Rational(_num, _den) => 3,
         }
     }
 
-    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+    fn get_length(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+    ) -> usize {
         match self {
             Numeral::Integer(num) => num.to_string().len(),
             Numeral::Rational(num, den) => {

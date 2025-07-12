@@ -1,6 +1,12 @@
 use crate::{
-    ast::{complex::Complex, numeral, Expr, Expression, SimplifyError},
-    explanation::FormattingObserver, prints::PrettyPrints,
+    ast::{
+        Expr, Expression, SimplifyError,
+        complex::Complex,
+        function::{Function, FunctionType},
+        numeral,
+    },
+    explanation::FormattingObserver,
+    prints::PrettyPrints,
 };
 
 #[derive(Debug, PartialEq, Clone, PartialOrd, Eq, Ord, Hash)]
@@ -28,7 +34,13 @@ impl Expr for Division {
     ) -> Result<Expression, SimplifyError> {
         let num = self.num.simplify(explanation)?;
         let den = self.den.simplify(explanation)?;
-        self.simplify_division(num, den, explanation)
+
+        if self.simplified {
+            return Ok(Expression::Division(Box::new(Division { num, den, simplified: true })));
+        } else {
+            self.simplified = true;
+            self.simplify_division(num, den, explanation)
+        }
     }
 
     fn is_equal(&self, other: &Division) -> bool {
@@ -41,6 +53,13 @@ impl Expr for Division {
 
     fn is_single(&self) -> bool {
         false
+    }
+
+    fn contains(&self, expression: &Expression) -> bool {
+        self.den.contains(expression)
+            || self.num.contains(expression)
+            || self.den.is_equal(expression)
+            || self.num.is_equal(expression)
     }
 }
 
@@ -69,7 +88,7 @@ impl Division {
         lhs: Expression,
         rhs: Expression,
         explanation: &mut Option<Box<FormattingObserver>>,
-    ) -> Result<Expression, SimplifyError> {
+    ) -> Result<Expression, SimplifyError> {        
         let before = Expression::division(lhs.clone(), rhs.clone());
         match (lhs, rhs) {
             // a/0 => DivisionByZero
@@ -192,21 +211,29 @@ impl Division {
             //     )
             //     .simplify(explanation)
             // }
-            // // a/sqrt(b) => a*sqrt(b)/b
-            // (a, Expression::Function(function::Function::Sqrt, args)) => {
-            //     rule = "using a/sqrt(b) => a*sqrt(b)/b";
-            //     Expression::Division(
-            //         Box::new(Expression::Multiplication(vec![
-            //             a,
-            //             Expression::Function(function::Function::Sqrt, args.clone()),
-            //         ])),
-            //         Box::new(args[0].clone()),
-            //     )
-            //     .simplify(explanation)
-            // }
+            // a/sqrt(b) => a*sqrt(b)/b
+            (
+                a,
+                Expression::Function(Function {
+                    name: FunctionType::Sqrt,
+                    args,
+                    simplified: _simplified,
+                }),
+            ) => {
+                let mut after = Expression::division(
+                    Expression::multiplication(vec![a, Expression::sqrt(args[0].clone())]),
+                    args[0].clone(),
+                );
+                if let Some(explanation) = explanation {
+                    explanation.rule_applied("We take the sqrt out of the denominator by multiplying by the sqrt\na/sqrt(b) => a*sqrt(b)/b", &before, &after);
+                }
+                after.simplify(explanation)
+            }
             // c/complex(a, b) => (c*complex(a, b))/(complex(a, b)*complcomplex(a, b))
             (lhs, Expression::Complex(comp)) => {
-                let conj = Expression::Complex(Box::new(Complex::new(comp.real.clone(), comp.imag.clone(), false).conjugate()));
+                let conj = Expression::Complex(Box::new(
+                    Complex::new(comp.real.clone(), comp.imag.clone(), false).conjugate(),
+                ));
                 let mut after = Expression::division(
                     Expression::multiplication(vec![lhs, conj.clone()]),
                     Expression::multiplication(vec![
@@ -258,58 +285,66 @@ impl PrettyPrints for Division {
         prev_pos: (usize, usize),
     ) {
         let length = self.get_length(memoization);
-                let bottom_height = self.den.get_height(memoization);
+        let bottom_height = self.den.get_height(memoization);
 
-                let bottom_length = self.den.get_length(memoization);
-                let top_length = self.num.get_length(memoization);
+        let bottom_length = self.den.get_length(memoization);
+        let top_length = self.num.get_length(memoization);
 
-                let (span, top) = if top_length > bottom_length {
-                    ((top_length - bottom_length) / 2, false)
-                } else {
-                    ((bottom_length - top_length) / 2, true)
-                };
+        let (span, top) = if top_length > bottom_length {
+            ((top_length - bottom_length) / 2, false)
+        } else {
+            ((bottom_length - top_length) / 2, true)
+        };
 
-                let mut pos = prev_pos;
+        let mut pos = prev_pos;
 
-                if !top {
-                    pos.1 += span;
-                    self.den.calculate_positions(memoization, position, pos);
-                    pos.1 -= span;
-                } else {
-                    self.den.calculate_positions(memoization, position, pos);
-                }
+        if !top {
+            pos.1 += span;
+            self.den.calculate_positions(memoization, position, pos);
+            pos.1 -= span;
+        } else {
+            self.den.calculate_positions(memoization, position, pos);
+        }
 
-                pos.0 += bottom_height;
+        pos.0 += bottom_height;
 
-                for _ in 0..length {
-                    position.push(("-".to_string(), pos));
-                    pos.1 += 1;
-                }
+        for _ in 0..length {
+            position.push(("-".to_string(), pos));
+            pos.1 += 1;
+        }
 
-                pos.1 -= length;
-                pos.0 += 1;
+        pos.1 -= length;
+        pos.0 += 1;
 
-                if top {
-                    pos.1 += span;
-                    self.num.calculate_positions(memoization, position, pos);
-                    pos.1 -= span;
-                } else {
-                    self.num.calculate_positions(memoization, position, pos);
-                }
+        if top {
+            pos.1 += span;
+            self.num.calculate_positions(memoization, position, pos);
+            pos.1 -= span;
+        } else {
+            self.num.calculate_positions(memoization, position, pos);
+        }
     }
 
-    fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+    fn get_below_height(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+    ) -> usize {
         self.den.get_height(memoization)
     }
 
-    fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+    fn get_height(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+    ) -> usize {
         self.num.get_height(memoization) + self.den.get_height(memoization) + 1
     }
 
-    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
-        self
-                .den
-                .get_length(memoization)
-                .max(self.num.get_length(memoization))
+    fn get_length(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+    ) -> usize {
+        self.den
+            .get_length(memoization)
+            .max(self.num.get_length(memoization))
     }
 }

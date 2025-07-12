@@ -46,6 +46,12 @@ impl Expr for Derivative {
     fn is_single(&self) -> bool {
         false
     }
+    
+    fn contains(&self, expression: &Expression) -> bool {
+        self.term.contains(expression)
+    }
+
+    
 }
 
 impl std::fmt::Display for Derivative {

@@ -32,6 +32,14 @@ impl Expr for Variable {
     fn is_single(&self) -> bool {
         true
     }
+    
+    fn contains(&self, expression: &Expression) -> bool {
+        if let Expression::Variable(var) = expression {
+            self.name == var.name
+        } else {
+            false
+        }
+    }
 }
 
 impl fmt::Display for Variable {
@@ -61,7 +69,7 @@ impl PrettyPrints for Variable {
     }
 
     fn get_height(&self, _memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
-        0
+        1
     }
 
     fn get_length(&self, _memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {

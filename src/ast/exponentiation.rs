@@ -43,6 +43,21 @@ impl Expr for Exponentiation {
     fn is_single(&self) -> bool {
         false
     }
+    
+    fn contains(&self, expression: &Expression) -> bool {
+        self.base.contains(expression) || self.expo.contains(expression) || 
+        self.base.is_equal(expression) || self.expo.is_equal(expression) ||
+        if let Expression::Exponentiation(exp) = expression {
+            // Check if e^2 is in e^(2 * 3) 
+            if let Expression::Multiplication(mul) = &exp.expo {
+                mul.contains(&self.expo) && exp.base.is_equal(&self.base)
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
 }
 
 impl std::fmt::Display for Exponentiation {

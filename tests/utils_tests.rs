@@ -3,7 +3,9 @@ mod tests {
     use std::collections::HashMap;
 
     use sym_rustic::{
-        ast::Expression, prints::PrettyPrints, utils::{factorial, gcd, lcm, multinomial_expansion, prime_factors}
+        ast::Expression,
+        prints::PrettyPrints,
+        utils::{factorial, gcd, lcm, multinomial_expansion, permutations, prime_factors},
     };
 
     #[test]
@@ -96,109 +98,79 @@ mod tests {
     fn test_multinomial_expansion() {
         assert!(
             multinomial_expansion(
-                &vec![
-                    Expression::variable("a"),
-                    Expression::variable("b"),
-                ],
+                &vec![Expression::variable("a"), Expression::variable("b"),],
                 2
-            ).simplify(&mut None).unwrap().is_equal(&Expression::addition(vec![
+            )
+            .simplify(&mut None)
+            .unwrap()
+            .is_equal(&Expression::addition(vec![
                 Expression::multiplication(vec![
                     Expression::integer(2),
                     Expression::variable("a"),
                     Expression::variable("b"),
                 ]),
-                Expression::exponentiation(
-                    Expression::variable("a"),
-                    Expression::integer(2)
-                ),
-                Expression::exponentiation(
-                    Expression::variable("b"),
-                    Expression::integer(2)
-                ),
+                Expression::exponentiation(Expression::variable("a"), Expression::integer(2)),
+                Expression::exponentiation(Expression::variable("b"), Expression::integer(2)),
             ]))
         );
 
         assert!(
             multinomial_expansion(
-                &(vec![
-                    Expression::variable("a"),
-                    Expression::variable("b"),
-                ]),
-                3   
-            ).simplify(&mut None).unwrap().is_equal(&Expression::addition(vec![
-                Expression::exponentiation(
-                    Expression::variable("a"),
-                    Expression::integer(3)
-                ),
-                Expression::exponentiation(
-                    Expression::variable("b"),
-                    Expression::integer(3)
-                ),
+                &(vec![Expression::variable("a"), Expression::variable("b"),]),
+                3
+            )
+            .simplify(&mut None)
+            .unwrap()
+            .is_equal(&Expression::addition(vec![
+                Expression::exponentiation(Expression::variable("a"), Expression::integer(3)),
+                Expression::exponentiation(Expression::variable("b"), Expression::integer(3)),
                 Expression::multiplication(vec![
                     Expression::integer(3),
-                    Expression::exponentiation(
-                        Expression::variable("a"),
-                        Expression::integer(2)
-                    ),
+                    Expression::exponentiation(Expression::variable("a"), Expression::integer(2)),
                     Expression::variable("b"),
                 ]),
                 Expression::multiplication(vec![
                     Expression::integer(3),
                     Expression::variable("a"),
-                    Expression::exponentiation(
-                        Expression::variable("b"),
-                        Expression::integer(2)
-                    ),
+                    Expression::exponentiation(Expression::variable("b"), Expression::integer(2)),
                 ]),
             ]))
         );
 
-        println!("{}", multinomial_expansion(
-            &vec![
-                Expression::variable("a"),
-                Expression::variable("b"),
-            ],
-            4
-        ).simplify(&mut None).unwrap().calculate_tree(0));
+        println!(
+            "{}",
+            multinomial_expansion(
+                &vec![Expression::variable("a"), Expression::variable("b"),],
+                4
+            )
+            .simplify(&mut None)
+            .unwrap()
+            .calculate_tree(0)
+        );
 
-        print!("{}", 
-        Expression::addition(vec![
-            Expression::exponentiation(
-                Expression::variable("a"),
-                Expression::integer(4)
-            ),
-            Expression::exponentiation(
-                Expression::variable("b"),
-                Expression::integer(4)
-            ),
-            Expression::multiplication(vec![
-                Expression::integer(6),
-                Expression::exponentiation(
-                    Expression::variable("a"),
-                    Expression::integer(2)
-                ),
-                Expression::exponentiation(
+        print!(
+            "{}",
+            Expression::addition(vec![
+                Expression::exponentiation(Expression::variable("a"), Expression::integer(4)),
+                Expression::exponentiation(Expression::variable("b"), Expression::integer(4)),
+                Expression::multiplication(vec![
+                    Expression::integer(6),
+                    Expression::exponentiation(Expression::variable("a"), Expression::integer(2)),
+                    Expression::exponentiation(Expression::variable("b"), Expression::integer(2)),
+                ]),
+                Expression::multiplication(vec![
+                    Expression::integer(4),
+                    Expression::exponentiation(Expression::variable("a"), Expression::integer(3)),
                     Expression::variable("b"),
-                    Expression::integer(2)
-                ),
-            ]),
-            Expression::multiplication(vec![
-                Expression::integer(4),
-                Expression::exponentiation(
+                ]),
+                Expression::multiplication(vec![
+                    Expression::integer(4),
+                    Expression::exponentiation(Expression::variable("b"), Expression::integer(3)),
                     Expression::variable("a"),
-                    Expression::integer(3)
-                ),
-                Expression::variable("b"),
-            ]),
-            Expression::multiplication(vec![
-                Expression::integer(4),
-                Expression::exponentiation(
-                    Expression::variable("b"),
-                    Expression::integer(3)
-                ),
-                Expression::variable("a"),
-            ]),
-        ]).calculate_tree(0));
+                ]),
+            ])
+            .calculate_tree(0)
+        );
 
         // multinomial_expansion(
         //     &vec![
@@ -210,48 +182,94 @@ mod tests {
 
         assert!(
             multinomial_expansion(
-                &vec![
-                    Expression::variable("a"),
-                    Expression::variable("b"),
-                ],
+                &vec![Expression::variable("a"), Expression::variable("b"),],
                 4
-            ).simplify(&mut None).unwrap().is_equal(&Expression::addition(vec![
-                Expression::exponentiation(
-                    Expression::variable("a"),
-                    Expression::integer(4)
-                ),
-                Expression::exponentiation(
-                    Expression::variable("b"),
-                    Expression::integer(4)
-                ),
+            )
+            .simplify(&mut None)
+            .unwrap()
+            .is_equal(&Expression::addition(vec![
+                Expression::exponentiation(Expression::variable("a"), Expression::integer(4)),
+                Expression::exponentiation(Expression::variable("b"), Expression::integer(4)),
                 Expression::multiplication(vec![
                     Expression::integer(6),
-                    Expression::exponentiation(
-                        Expression::variable("a"),
-                        Expression::integer(2)
-                    ),
-                    Expression::exponentiation(
-                        Expression::variable("b"),
-                        Expression::integer(2)
-                    ),
+                    Expression::exponentiation(Expression::variable("a"), Expression::integer(2)),
+                    Expression::exponentiation(Expression::variable("b"), Expression::integer(2)),
                 ]),
                 Expression::multiplication(vec![
                     Expression::integer(4),
-                    Expression::exponentiation(
-                        Expression::variable("a"),
-                        Expression::integer(3)
-                    ),
+                    Expression::exponentiation(Expression::variable("a"), Expression::integer(3)),
                     Expression::variable("b"),
                 ]),
                 Expression::multiplication(vec![
                     Expression::integer(4),
-                    Expression::exponentiation(
-                        Expression::variable("b"),
-                        Expression::integer(3)
-                    ),
+                    Expression::exponentiation(Expression::variable("b"), Expression::integer(3)),
                     Expression::variable("a"),
                 ]),
             ]))
+        );
+    }
+
+    #[test]
+    fn test_permutation() {
+        let array = vec![0, 1, 2, 3];
+
+        let perm = permutations(0, &mut array.clone());
+        assert_eq!(perm, None);
+
+        let perm = permutations(6, &mut array.clone());
+        assert_eq!(perm, None);
+
+        let perm = permutations(1, &mut array.clone());
+        assert_eq!(perm, Some(vec![array.clone()]));
+
+        let perm = permutations(2, &mut array.clone());
+        assert_eq!(
+            perm,
+            Some(vec![vec![0, 1, 2, 3], vec![1, 0, 2, 3]])
+        );
+
+        let perm = permutations(3, &mut array.clone());
+        assert_eq!(
+            perm,
+            Some(vec![
+                vec![0, 1, 2, 3],
+                vec![1, 0, 2, 3],
+                vec![2, 0, 1, 3],
+                vec![0, 2, 1, 3],
+                vec![1, 2, 0, 3],
+                vec![2, 1, 0, 3],
+            ]),
+        );
+
+        let perm = permutations(4, &mut array.clone());
+        assert_eq!(
+            perm,
+            Some(vec![
+                vec![0, 1, 2, 3],
+                vec![1, 0, 2, 3],
+                vec![2, 0, 1, 3],
+                vec![0, 2, 1, 3],
+                vec![1, 2, 0, 3],
+                vec![2, 1, 0, 3],
+                vec![3, 1, 0, 2],
+                vec![1, 3, 0, 2],
+                vec![0, 3, 1, 2],
+                vec![3, 0, 1, 2],
+                vec![1, 0, 3, 2],
+                vec![0, 1, 3, 2],
+                vec![0, 2, 3, 1],
+                vec![2, 0, 3, 1],
+                vec![3, 0, 2, 1],
+                vec![0, 3, 2, 1],
+                vec![2, 3, 0, 1],
+                vec![3, 2, 0, 1],
+                vec![3, 2, 1, 0],
+                vec![2, 3, 1, 0],
+                vec![1, 3, 2, 0],
+                vec![3, 1, 2, 0],
+                vec![2, 1, 3, 0],
+                vec![1, 2, 3, 0],
+            ])
         );
     }
 }

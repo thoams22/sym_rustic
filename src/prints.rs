@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ast::{Expression, constant, numeral::Numeral};
+use crate::ast::Expression;
 
 pub trait PrettyPrints: std::fmt::Display {
     // Printing methods

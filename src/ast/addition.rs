@@ -38,7 +38,28 @@ impl Expr for Addition {
     }
 
     fn is_single(&self) -> bool {
-        self.terms.len() <= 1
+        self.terms.len() == 1
+    }
+    
+    fn contains(&self, expression: &Expression) -> bool {
+        self.terms.iter().any(|term| {
+            term.is_equal(expression) || term.contains(expression)
+        })
+        // Check if (a + x + y) is in (a + y + z + x)
+        || if let Expression::Addition(add) = expression {
+            // Must be at least the same size for it to contains the expression
+            if self.terms.len() >= add.terms.len() {
+                add.terms.iter().all(|add_term| {
+                    self.terms.iter().any(|self_term| {
+                        self_term.is_equal(add_term)
+                    })
+                }) 
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 }
 
@@ -410,7 +431,7 @@ impl Addition {
                     // a + c/d => (ad + c)/(d)
                     (a, Expression::Division(div)) | (Expression::Division(div), a) => {
                         let mut after = Expression::division(
-                            Expression::addition(vec![a.clone(), div.num.clone()]),
+                            Expression::addition(vec![Expression::multiplication(vec![a.clone(), div.den.clone()]), div.num.clone()]),
                             div.den.clone(),
                         );
                         if let Some(explanation) = explanation {

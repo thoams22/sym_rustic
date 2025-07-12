@@ -31,6 +31,14 @@ impl Expr for Constant {
     fn is_single(&self) -> bool {
         true
     }
+    
+    fn contains(&self, expression: &Expression) -> bool {
+        if let Expression::Constant(cons) = expression {
+            self == cons
+        } else {
+            false
+        }
+    } 
 }
 
 impl std::fmt::Display for Constant {

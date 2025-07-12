@@ -1,6 +1,7 @@
 use crate::{
-    ast::{numeral::Numeral, Expr, Expression, SimplifyError},
-    explanation::FormattingObserver, prints::PrettyPrints,
+    ast::{Expr, Expression, SimplifyError, numeral::Numeral},
+    explanation::FormattingObserver,
+    prints::PrettyPrints,
 };
 
 #[derive(Debug, PartialEq, Clone, PartialOrd, Eq, Ord, Hash)]
@@ -31,7 +32,11 @@ impl Expr for Function {
             .iter_mut()
             .map(|arg| arg.simplify(explanation))
             .collect::<Result<Vec<Expression>, _>>()?;
-        Ok(Expression::Function(Function::new(self.name.clone(), args, true)))
+        Ok(Expression::Function(Function::new(
+            self.name.clone(),
+            args,
+            true,
+        )))
     }
 
     fn is_equal(&self, other: &Function) -> bool {
@@ -41,13 +46,23 @@ impl Expr for Function {
     fn contains_var(&self, variable: &str) -> bool {
         match self.name.number_of_arguments() {
             1 => self.args[0].contains_var(variable),
-            2 => self.args[1].contains_var(variable),
+            2 => self.args[0].contains_var(variable) || self.args[1].contains_var(variable),
             _ => panic!("Sould'nt have more than 2 arguments"),
         }
     }
 
     fn is_single(&self) -> bool {
         true
+    }
+
+    fn contains(&self, expression: &Expression) -> bool {
+        self.args[0].contains(expression)
+            || self.args[0].is_equal(expression)
+            || if self.name.number_of_arguments() == 2 {
+                self.args[1].contains(expression) || self.args[1].is_equal(expression)
+            } else {
+                true
+            }
     }
 }
 
@@ -93,8 +108,7 @@ impl Function {
                     _ => Ok(Expression::pow(args[1].clone(), args[0].clone())),
                 }
             }
-            a => Ok(Expression::Function(Function::new(a, args, true)))
-            ,
+            a => Ok(Expression::Function(Function::new(a, args, true))),
         };
 
         if !rule.is_empty() {
@@ -131,8 +145,11 @@ pub enum FunctionType {
     Ceil,
     Floor,
     // 2 arguments
+    /// log(order, expression)
     Log,
+    /// log(order, expression)
     Pow,
+    /// log(order, expression)
     Root,
 }
 
@@ -265,29 +282,36 @@ impl PrettyPrints for Function {
         Self::calculate_parenthesis(position, pos, false, height);
     }
 
-    fn get_below_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
-        self
-                .args
-                .iter()
-                .map(|x| x.get_below_height(memoization))
-                .max()
-                .unwrap_or(0)
-    }
-
-    fn get_height(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
-        self
-                .args
-                .iter()
-                .map(|x| x.get_height(memoization))
-                .max()
-                .unwrap_or(1)
-    }
-
-    fn get_length(&self, memoization: &mut std::collections::HashMap<Expression, (usize, usize)>) -> usize {
+    fn get_below_height(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+    ) -> usize {
         self.args
-        .iter()
-        .map(|x| x.get_length(memoization) + 2)
-        .sum::<usize>()
-        + self.name.get_length()
+            .iter()
+            .map(|x| x.get_below_height(memoization))
+            .max()
+            .unwrap_or(0)
+    }
+
+    fn get_height(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+    ) -> usize {
+        self.args
+            .iter()
+            .map(|x| x.get_height(memoization))
+            .max()
+            .unwrap_or(1)
+    }
+
+    fn get_length(
+        &self,
+        memoization: &mut std::collections::HashMap<Expression, (usize, usize)>,
+    ) -> usize {
+        self.args
+            .iter()
+            .map(|x| x.get_length(memoization) + 2)
+            .sum::<usize>()
+            + self.name.get_length()
     }
 }

@@ -45,6 +45,13 @@ impl Expr for Equality {
     fn is_single(&self) -> bool {
         false
     }
+    
+    fn contains(&self, expression: &Expression) -> bool {
+        self.left.contains(expression) || self.right.contains(expression) || 
+        self.left.is_equal(expression) || self.right.is_equal(expression)
+    }
+
+    
 }
 
 impl std::fmt::Display for Equality {

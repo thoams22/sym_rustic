@@ -48,6 +48,11 @@ impl Expr for Complex {
     fn is_single(&self) -> bool {
         false
     }
+    
+    fn contains(&self, expression: &Expression) -> bool {
+        self.real.contains(expression) || self.imag.contains(expression) || 
+        self.real.is_equal(expression) || self.imag.is_equal(expression)
+    }
 }
 
 impl std::fmt::Display for Complex {

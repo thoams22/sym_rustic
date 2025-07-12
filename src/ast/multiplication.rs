@@ -37,6 +37,28 @@ impl Expr for Multiplication {
     fn is_single(&self) -> bool {
         self.terms.len() <= 1
     }
+    
+    fn contains(&self, expression: &Expression) -> bool {
+        self.terms.iter().any(|term| {
+            term.is_equal(expression) || term.contains(expression)
+        })
+        // Check if (a * x * y) is in (a * y * z * x)
+        || if let Expression::Multiplication(mul) = expression {
+            // Must be at least the same size for it to contains the expression
+            if self.terms.len() >= mul.terms.len() {
+                mul.terms.iter().all(|mul_term| {
+                    self.terms.iter().any(|self_term| {
+                        self_term.is_equal(mul_term)
+                    })
+                }) 
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+    
 }
 
 impl std::fmt::Display for Multiplication {
@@ -136,7 +158,7 @@ impl Multiplication {
                         result.swap_remove(j);
                     }
                     (Expression::Number(a), Expression::Number(b)) => {
-                        let after = Expression::Number(a.mul(b));
+                        let mut after = Expression::Number(a.mul(b));
                         if let Some(explanation) = explanation {
                             explanation.rule_applied(
                                 "Multiply numbers",
@@ -144,7 +166,7 @@ impl Multiplication {
                                 &after,
                             );
                         };
-                        result[i] = after;
+                        result[i] = after.simplify(explanation)?;
                         result.swap_remove(j);
                     }
                     // a * a => a^2

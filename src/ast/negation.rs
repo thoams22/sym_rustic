@@ -26,7 +26,14 @@ impl Expr for Negation {
         &mut self,
         explanation: &mut Option<Box<FormattingObserver>>,
     ) -> Result<Expression, SimplifyError> {
+        if self.simplified {
+            return Ok(Expression::Negation(Box::new(Negation { term: self.term.clone(), simplified: true })));
+        } else {
+            self.simplified = true;
+        }
+        
         let expr = self.term.simplify(explanation)?;
+
         match expr {
             // --a => a
             Expression::Negation(a) => Ok(a.term),
@@ -83,6 +90,12 @@ impl Expr for Negation {
     fn is_single(&self) -> bool {
         true
     }
+    
+    fn contains(&self, expression: &Expression) -> bool {
+        self.term.contains(expression)
+    }
+
+    
 }
 
 impl std::fmt::Display for Negation {
